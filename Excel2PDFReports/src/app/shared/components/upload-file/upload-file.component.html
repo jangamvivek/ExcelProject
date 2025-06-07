@@ -1,0 +1,81 @@
+<div class="min-vh-100 d-flex justify-content-center align-items-center bg-dark text-white">
+  <div class="text-center w-100 px-3" style="max-width: 800px;">
+    <h2 class="mb-4">What's on the agenda today?</h2>
+    
+    <!-- Input Group -->
+    <div class="input-group shadow rounded-pill bg-secondary p-2 align-items-center">
+
+      <!-- Tools Dropdown (Upload Options) -->
+      <div class="dropdown">
+        <button 
+          class="btn btn-dark rounded-circle me-2" 
+          type="button" 
+          id="dropdownTools" 
+          data-bs-toggle="dropdown" 
+          aria-expanded="false"
+          aria-label="Upload Options"
+        >
+          <i class="bi bi-plus-lg"></i>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-dark mt-3" aria-labelledby="dropdownTools">
+          <!-- Upload Excel/CSV -->
+          <li>
+            <label class="dropdown-item mb-0" for="fileUpload">Upload Excel/CSV</label>
+            <input
+              type="file"
+              id="fileUpload"
+              accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+              (change)="handleFileUpload($event)"
+              style="display: none"
+            />
+          </li>
+
+          <!-- Upload Image -->
+          <li>
+            <label class="dropdown-item mb-0" for="imageUpload">Upload Image</label>
+            <input
+              type="file"
+              id="imageUpload"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              (change)="handleImageUpload($event)"
+              style="display: none"
+            />
+          </li>
+        </ul>
+      </div>
+
+      <!-- Input Box for URL or Questions -->
+      <input
+        type="text"
+        class="form-control bg-dark text-white border-0"
+        placeholder="Ask anything or paste a URL"
+        aria-label="Ask anything or paste a URL"
+        [(ngModel)]="urlInput"
+      />
+
+      <!-- Submit Button -->
+      <button 
+        class="btn btn-light rounded-circle ms-2" 
+        type="button" 
+        (click)="handleUpload()" 
+        title="Submit"
+        aria-label="Submit"
+      >
+        <i class="bi bi-arrow-up"></i>
+      </button>
+    </div>
+
+    <!-- Show selected file name -->
+    <div *ngIf="selectedFileName" class="d-flex align-items-center bg-dark text-white px-2 py-1 rounded ms-2 mt-3">
+      <span class="me-2">{{ selectedFileName }}</span>
+      <i 
+        class="bi bi-x-circle-fill text-danger cursor-pointer" 
+        role="button" 
+        title="Remove file"
+        (click)="removeSelectedFile()"
+        aria-label="Remove file"
+      ></i>
+    </div>
+  </div>
+</div>
