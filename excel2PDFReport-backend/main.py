@@ -20,6 +20,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from fastapi.responses import JSONResponse
 import shutil
 from scraper import process_image
+import re
+from typing import Dict, List, Any
+# from chatbot import get_chat_response
 
 app = FastAPI()
 
@@ -32,6 +35,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+#chatbot code 
+# api_key = "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"
+# while True:
+#     user_input = input("You: ")
+#     if user_input.lower() in ("exit", "quit", "bye"):
+#         break
+#     print("Bot:", get_chat_response(user_input, api_key))
+    
+    
 UPLOAD_DIR = "uploaded_files"
 
 if not os.path.exists(UPLOAD_DIR):
@@ -204,7 +216,7 @@ def create_enhanced_correlation_heatmap(df, numeric_cols, output_dir):
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
     
-    filename = f"correlation_heatmap_{uuid.uuid4().hex[:8]}.png"
+    filename = f"correlation{uuid.uuid4().hex[:8]}.png"
     return save_high_quality_plot(fig, filename, output_dir)
 
 
@@ -249,7 +261,9 @@ def create_enhanced_histogram(df, col, output_dir):
     ax.set_ylabel('Frequency', fontweight='bold')
     ax.legend(loc='upper left')
     
-    filename = f"histogram_{col}_{uuid.uuid4().hex[:8]}.png"
+    # Clean column name for filename
+    clean_col = ''.join(c for c in col if c.isalnum())
+    filename = f"hist{clean_col}{uuid.uuid4().hex[:8]}.png"
     return save_high_quality_plot(fig, filename, output_dir)
 
 
@@ -290,7 +304,9 @@ def create_enhanced_bar_chart(df, col, output_dir):
                 f'{percentage:.1f}%', ha='center', va='center', 
                 color='white', fontweight='bold', fontsize=9)
     
-    filename = f"bar_chart_{col}_{uuid.uuid4().hex[:8]}.png"
+    # Clean column name for filename
+    clean_col = ''.join(c for c in col if c.isalnum())
+    filename = f"bar{clean_col}{uuid.uuid4().hex[:8]}.png"
     return save_high_quality_plot(fig, filename, output_dir)
 
 
@@ -326,7 +342,9 @@ def create_enhanced_pie_chart(df, col, output_dir):
     ax.legend(wedges, [f'{label}: {count:,}' for label, count in val_counts.items()],
               title="Categories", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
     
-    filename = f"pie_chart_{col}_{uuid.uuid4().hex[:8]}.png"
+    # Clean column name for filename
+    clean_col = ''.join(c for c in col if c.isalnum())
+    filename = f"pie{clean_col}{uuid.uuid4().hex[:8]}.png"
     return save_high_quality_plot(fig, filename, output_dir)
 
 
@@ -362,7 +380,9 @@ def create_box_plots(df, numeric_cols, output_dir):
         ax.set_ylabel(col, fontweight='bold')
         ax.set_xticklabels([col])
         
-        filename = f"boxplot_{col}_{uuid.uuid4().hex[:8]}.png"
+        # Clean column name for filename
+        clean_col = ''.join(c for c in col if c.isalnum())
+        filename = f"box{clean_col}{uuid.uuid4().hex[:8]}.png"
         visuals.append(save_high_quality_plot(fig, filename, output_dir))
     
     return visuals
@@ -412,6 +432,477 @@ def generate_visualizations(df: pd.DataFrame, output_dir=UPLOAD_DIR):
         return visuals
 
 
+# def generate_dashboard_title(df: pd.DataFrame) -> dict:
+#     """Generate a professional dashboard title based on the data characteristics"""
+#     # Get basic dataset info
+#     num_rows = df.shape[0]
+#     num_cols = df.shape[1]
+    
+#     # Get column types
+#     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+#     categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    
+#     # Determine the main focus of the data
+#     if len(numeric_cols) > len(categorical_cols):
+#         data_type = "Analytics"
+#     else:
+#         data_type = "Categorical Analysis"
+    
+#     # Get time-based columns if they exist
+#     time_cols = [col for col in df.columns if any(time_term in col.lower() for time_term in ['date', 'time', 'year', 'month', 'day'])]
+    
+#     # Get business-related columns
+#     business_cols = [col for col in df.columns if any(term in col.lower() for term in 
+#                     ['sales', 'revenue', 'profit', 'cost', 'price', 'customer', 'product', 'order'])]
+    
+#     # Generate title components
+#     title_parts = []
+    
+#     # Add business context if available
+#     if business_cols:
+#         main_business_col = business_cols[0].replace('_', ' ').title()
+#         title_parts.append(f"{main_business_col}")
+    
+#     # Add time context if available
+#     if time_cols:
+#         time_col = time_cols[0].replace('_', ' ').title()
+#         title_parts.append(f"by {time_col}")
+    
+#     # Add data type
+#     title_parts.append(data_type)
+    
+#     # Add dataset size context
+#     if num_rows > 1000:
+#         size_context = "Large-Scale"
+#     elif num_rows > 100:
+#         size_context = "Comprehensive"
+#     else:
+#         size_context = "Detailed"
+#     title_parts.append(f"{size_context} Dashboard")
+    
+#     # Combine parts into final title
+#     main_title = " | ".join(title_parts)
+    
+#     # Add subtitle with key metrics
+#     subtitle = f"Analyzing {num_rows:,} records across {num_cols} dimensions"
+    
+#     # Generate title variations for different contexts
+#     title_info = {
+#         "main_title": main_title,
+#         "short_title": title_parts[0] if title_parts else "Data Dashboard",
+#         "subtitle": subtitle,
+#         "header": {
+#             "title": main_title,
+#             "subtitle": subtitle,
+#             "icon": "📊" if len(numeric_cols) > len(categorical_cols) else "📈"
+#         },
+#         "breadcrumb": " > ".join(title_parts),
+#         "page_title": f"{main_title} - Data Analysis Dashboard",
+#         "metrics": {
+#             "total_records": num_rows,
+#             "total_dimensions": num_cols,
+#             "numeric_columns": len(numeric_cols),
+#             "categorical_columns": len(categorical_cols),
+#             "has_time_data": bool(time_cols),
+#             "has_business_metrics": bool(business_cols)
+#         },
+#         "context": {
+#             "data_type": data_type,
+#             "size_context": size_context,
+#             "has_time_series": bool(time_cols),
+#             "has_business_data": bool(business_cols),
+#             "primary_metric": business_cols[0] if business_cols else None,
+#             "time_dimension": time_cols[0] if time_cols else None
+#         }
+#     }
+    
+#     return title_info
+
+def generate_dashboard_title(df: pd.DataFrame, filename: str = None) -> dict:
+    """Generate intelligent, context-aware dashboard titles based on data analysis"""
+    
+    # Get basic dataset info
+    num_rows = df.shape[0]
+    num_cols = df.shape[1]
+    columns = [col.lower().strip() for col in df.columns]
+    
+    # Industry/Domain detection patterns
+    industry_patterns = {
+        'retail': ['sales', 'product', 'customer', 'order', 'inventory', 'store', 'purchase', 'revenue'],
+        'finance': ['transaction', 'account', 'balance', 'payment', 'investment', 'portfolio', 'credit', 'loan'],
+        'hr': ['employee', 'salary', 'department', 'performance', 'hire', 'staff', 'payroll'],
+        'marketing': ['campaign', 'leads', 'conversion', 'clicks', 'impressions', 'ctr', 'roi', 'engagement'],
+        'healthcare': ['patient', 'diagnosis', 'treatment', 'medical', 'hospital', 'doctor', 'medication'],
+        'education': ['student', 'grade', 'course', 'exam', 'teacher', 'school', 'enrollment'],
+        'logistics': ['shipment', 'delivery', 'warehouse', 'supplier', 'freight', 'inventory', 'tracking'],
+        'technology': ['user', 'session', 'api', 'performance', 'server', 'application', 'database'],
+        'sports': ['player', 'team', 'score', 'match', 'season', 'statistics', 'performance', 'league']
+    }
+    
+    # Business metrics patterns
+    metric_patterns = {
+        'sales': ['sales', 'revenue', 'income', 'earnings', 'profit'],
+        'financial': ['cost', 'expense', 'budget', 'price', 'amount', 'value'],
+        'performance': ['rating', 'score', 'performance', 'efficiency', 'productivity'],
+        'customer': ['customer', 'client', 'user', 'member', 'subscriber'],
+        'operational': ['quantity', 'volume', 'count', 'frequency', 'duration'],
+        'geographical': ['region', 'country', 'state', 'city', 'location', 'area']
+    }
+    
+    # Time-based patterns
+    time_patterns = ['date', 'time', 'year', 'month', 'quarter', 'week', 'day', 'period']
+    
+    # Extract company/brand name from filename
+    def extract_brand_from_filename(filename: str) -> str:
+        if not filename:
+            return None
+        
+        # Remove file extension and common prefixes
+        name = re.sub(r'\.(csv|xlsx|xls)$', '', filename, flags=re.IGNORECASE)
+        name = re.sub(r'^(data_|report_|analysis_|dashboard_)', '', name, flags=re.IGNORECASE)
+        
+        # Split by common separators and take the first meaningful part
+        parts = re.split(r'[-_\s]+', name)
+        if parts:
+            brand = parts[0].strip()
+            # Capitalize properly
+            if brand and len(brand) > 1:
+                return brand.title()
+        return None
+    
+    # Detect industry based on column names
+    def detect_industry(columns: List[str]) -> str:
+        industry_scores = {}
+        for industry, keywords in industry_patterns.items():
+            score = sum(1 for col in columns for keyword in keywords if keyword in col)
+            if score > 0:
+                industry_scores[industry] = score
+        
+        if industry_scores:
+            return max(industry_scores, key=industry_scores.get)
+        return None
+    
+    # Detect primary business metrics
+    def detect_primary_metrics(columns: List[str]) -> List[str]:
+        found_metrics = []
+        for metric_type, keywords in metric_patterns.items():
+            for col in columns:
+                for keyword in keywords:
+                    if keyword in col:
+                        found_metrics.append(metric_type)
+                        break
+                if metric_type in found_metrics:
+                    break
+        return list(set(found_metrics))
+    
+    # Detect time dimensions
+    def detect_time_dimension(columns: List[str]) -> str:
+        for col in columns:
+            for time_term in time_patterns:
+                if time_term in col:
+                    return time_term.title()
+        return None
+    
+    # Get actual data insights for smarter titles
+    def get_data_insights(df: pd.DataFrame) -> Dict[str, Any]:
+        insights = {}
+        
+        # Check for categorical columns with specific patterns
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        for col in categorical_cols:
+            col_lower = col.lower()
+            unique_values = df[col].dropna().unique()
+            
+            # Check if it's a product/brand column
+            if any(term in col_lower for term in ['product', 'brand', 'item', 'model']):
+                insights['has_products'] = True
+                insights['product_column'] = col
+                insights['product_count'] = len(unique_values)
+            
+            # Check if it's a category column
+            elif any(term in col_lower for term in ['category', 'type', 'class', 'segment']):
+                insights['has_categories'] = True
+                insights['category_column'] = col
+                insights['category_count'] = len(unique_values)
+            
+            # Check if it's a geographical column
+            elif any(term in col_lower for term in ['country', 'region', 'state', 'city', 'location']):
+                insights['has_geography'] = True
+                insights['geo_column'] = col
+        
+        return insights
+    
+    # Main title generation logic
+    brand_name = extract_brand_from_filename(filename) if filename else None
+    industry = detect_industry(columns)
+    primary_metrics = detect_primary_metrics(columns)
+    time_dimension = detect_time_dimension(columns)
+    data_insights = get_data_insights(df)
+    
+    # Build title components
+    title_parts = []
+    
+    # Add brand/company name if detected
+    if brand_name:
+        title_parts.append(brand_name)
+    
+    # Add primary business focus
+    if 'sales' in primary_metrics or any('sales' in col for col in columns):
+        title_parts.append("Sales Dashboard")
+    elif 'financial' in primary_metrics and 'performance' in primary_metrics:
+        title_parts.append("Financial Performance Dashboard")
+    elif 'customer' in primary_metrics:
+        title_parts.append("Customer Analytics Dashboard")
+    elif industry == 'retail' and data_insights.get('has_products'):
+        title_parts.append("Product Performance Dashboard")
+    elif industry == 'marketing':
+        title_parts.append("Marketing Analytics Dashboard")
+    elif industry == 'hr':
+        title_parts.append("HR Analytics Dashboard")
+    elif industry == 'finance':
+        title_parts.append("Financial Analytics Dashboard")
+    elif industry and primary_metrics:
+        title_parts.append(f"{industry.title()} {primary_metrics[0].title()} Dashboard")
+    elif industry:
+        title_parts.append(f"{industry.title()} Analytics Dashboard")
+    elif primary_metrics:
+        title_parts.append(f"{primary_metrics[0].title()} Analytics Dashboard")
+    else:
+        # Fallback to column-based title
+        key_columns = [col for col in df.columns[:3] if not any(time_term in col.lower() for time_term in time_patterns)]
+        if key_columns:
+            main_focus = key_columns[0].replace('_', ' ').title()
+            title_parts.append(f"{main_focus} Analytics Dashboard")
+        else:
+            title_parts.append("Business Intelligence Dashboard")
+    
+    # Generate main title
+    if len(title_parts) == 1:
+        main_title = title_parts[0]
+    else:
+        main_title = " - ".join(title_parts)
+    
+    # Generate contextual subtitle
+    subtitle_parts = []
+    
+    if data_insights.get('has_products'):
+        subtitle_parts.append(f"{data_insights['product_count']} products")
+    if data_insights.get('has_categories'):
+        subtitle_parts.append(f"{data_insights['category_count']} categories")
+    if data_insights.get('has_geography'):
+        subtitle_parts.append("multi-region analysis")
+    if time_dimension:
+        subtitle_parts.append(f"tracked over {time_dimension.lower()}")
+    
+    # Add data scale context
+    if num_rows > 10000:
+        subtitle_parts.append(f"{num_rows:,} records")
+    elif num_rows > 1000:
+        subtitle_parts.append(f"{num_rows:,} data points")
+    
+    subtitle = " | ".join(subtitle_parts) if subtitle_parts else f"Comprehensive analysis of {num_rows:,} records"
+    
+    # Generate short title for navigation
+    if brand_name:
+        short_title = f"{brand_name} Dashboard"
+    elif industry:
+        short_title = f"{industry.title()} Dashboard"
+    else:
+        short_title = "Analytics Dashboard"
+    
+    # Return comprehensive title information
+    return {
+        "main_title": main_title,
+        "short_title": short_title,
+        "subtitle": subtitle,
+        "header": {
+            "title": main_title,
+            "subtitle": subtitle,
+            "icon": "📊" if 'sales' in primary_metrics else "📈"
+        },
+        "breadcrumb": " > ".join([short_title, "Analysis"]),
+        "page_title": f"{main_title} - Business Intelligence",
+        "metrics": {
+            "total_records": num_rows,
+            "total_dimensions": num_cols,
+            "detected_industry": industry,
+            "primary_metrics": primary_metrics,
+            "has_time_data": bool(time_dimension),
+            "brand_detected": bool(brand_name)
+        },
+        "context": {
+            "industry": industry,
+            "brand": brand_name,
+            "primary_focus": primary_metrics[0] if primary_metrics else None,
+            "time_dimension": time_dimension,
+            "data_insights": data_insights,
+            "title_confidence": "high" if (brand_name or industry) else "medium"
+        }
+    }
+
+# Example usage and testing
+def test_title_generation():
+    """Test the title generation with sample data"""
+    
+    # Test case 1: Nike sales data
+    nike_data = pd.DataFrame({
+        'Product_Name': ['Air Max', 'Air Force', 'Dunk'],
+        'Sales_Amount': [1000, 1500, 800],
+        'Month': ['Jan', 'Feb', 'Mar'],
+        'Region': ['US', 'EU', 'Asia']
+    })
+    
+    nike_title = generate_dashboard_title(nike_data, "nike_sales_2024.csv")
+    print("Nike Example:")
+    print(f"Main Title: {nike_title['main_title']}")
+    print(f"Subtitle: {nike_title['subtitle']}")
+    print()
+    
+    # Test case 2: Financial data
+    financial_data = pd.DataFrame({
+        'Account_Type': ['Checking', 'Savings', 'Credit'],
+        'Balance': [5000, 15000, -2000],
+        'Transaction_Date': ['2024-01-01', '2024-01-02', '2024-01-03'],
+        'Customer_ID': [1, 2, 3]
+    })
+    
+    financial_title = generate_dashboard_title(financial_data, "bank_transactions.xlsx")
+    print("Financial Example:")
+    print(f"Main Title: {financial_title['main_title']}")
+    print(f"Subtitle: {financial_title['subtitle']}")
+    print()
+    
+    # Test case 3: Generic business data
+    generic_data = pd.DataFrame({
+        'Revenue': [10000, 12000, 11000],
+        'Customers': [100, 120, 110],
+        'Quarter': ['Q1', 'Q2', 'Q3']
+    })
+    
+    generic_title = generate_dashboard_title(generic_data, "business_metrics.csv")
+    print("Generic Example:")
+    print(f"Main Title: {generic_title['main_title']}")
+    print(f"Subtitle: {generic_title['subtitle']}")
+
+# Run test
+if __name__ == "__main__":
+    test_title_generation()
+
+
+def prepare_visualization_data(df: pd.DataFrame) -> dict:
+    """Prepare data for frontend visualizations"""
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    
+    viz_data = {
+        "correlation": None,
+        "histograms": [],
+        "bar_charts": [],
+        "pie_charts": [],
+        "box_plots": [],
+        "time_series": []
+    }
+    
+    # 1. Correlation Matrix
+    if len(numeric_cols) >= 2:
+        corr_matrix = df[numeric_cols].corr()
+        viz_data["correlation"] = {
+            "columns": numeric_cols,
+            "data": corr_matrix.values.tolist(),
+            "type": "heatmap"
+        }
+    
+    # 2. Histograms for numeric columns
+    for col in numeric_cols[:3]:  # Limit to first 3 numeric columns
+        data = df[col].dropna()
+        hist, bins = np.histogram(data, bins=30)
+        viz_data["histograms"].append({
+            "column": col,
+            "type": "histogram",
+            "data": {
+                "values": hist.tolist(),
+                "bins": bins.tolist(),
+                "mean": float(data.mean()),
+                "median": float(data.median()),
+                "std": float(data.std()),
+                "min": float(data.min()),
+                "max": float(data.max())
+            }
+        })
+    
+    # 3. Bar Charts for categorical columns
+    for col in categorical_cols[:2]:  # Limit to first 2 categorical columns
+        if df[col].nunique() <= 20:  # Only for columns with reasonable number of categories
+            value_counts = df[col].value_counts().head(10)
+            viz_data["bar_charts"].append({
+                "column": col,
+                "type": "bar",
+                "data": {
+                    "labels": value_counts.index.tolist(),
+                    "values": value_counts.values.tolist(),
+                    "percentages": (value_counts.values / len(df) * 100).tolist()
+                }
+            })
+    
+    # 4. Pie Charts for categorical columns with few categories
+    for col in categorical_cols[:2]:
+        if 2 <= df[col].nunique() <= 8:
+            value_counts = df[col].value_counts()
+            viz_data["pie_charts"].append({
+                "column": col,
+                "type": "pie",
+                "data": {
+                    "labels": value_counts.index.tolist(),
+                    "values": value_counts.values.tolist(),
+                    "percentages": (value_counts.values / len(df) * 100).tolist()
+                }
+            })
+    
+    # 5. Box Plots for numeric columns
+    for col in numeric_cols[:4]:  # Limit to first 4 numeric columns
+        data = df[col].dropna()
+        q1 = data.quantile(0.25)
+        q3 = data.quantile(0.75)
+        iqr = q3 - q1
+        outliers = data[(data < q1 - 1.5 * iqr) | (data > q3 + 1.5 * iqr)]
+        
+        viz_data["box_plots"].append({
+            "column": col,
+            "type": "box",
+            "data": {
+                "min": float(data.min()),
+                "q1": float(q1),
+                "median": float(data.median()),
+                "q3": float(q3),
+                "max": float(data.max()),
+                "outliers": outliers.tolist(),
+                "mean": float(data.mean())
+            }
+        })
+    
+    # 6. Time Series (if time columns exist)
+    time_cols = [col for col in df.columns if any(time_term in col.lower() 
+                for time_term in ['date', 'time', 'year', 'month', 'day'])]
+    
+    if time_cols and numeric_cols:
+        time_col = time_cols[0]
+        numeric_col = numeric_cols[0]  # Use first numeric column for time series
+        
+        # Sort by time and group if needed
+        if df[time_col].dtype == 'datetime64[ns]':
+            time_series = df.sort_values(time_col).groupby(time_col)[numeric_col].mean()
+            viz_data["time_series"].append({
+                "time_column": time_col,
+                "value_column": numeric_col,
+                "type": "line",
+                "data": {
+                    "times": time_series.index.strftime('%Y-%m-%d').tolist(),
+                    "values": time_series.values.tolist()
+                }
+            })
+    
+    return viz_data
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
@@ -427,6 +918,13 @@ async def upload_file(file: UploadFile = File(...)):
         df_cleaned = df.dropna(how="all").dropna(axis=1, how="all")
         preview = df_cleaned.head().to_dict(orient="records")
 
+        # Generate dashboard title and metadata
+        dashboard_info = generate_dashboard_title(df_cleaned)
+
+        # Prepare visualization data
+        visualization_data = prepare_visualization_data(df_cleaned)
+
+        # Basic summary
         summary = {
             "rows": df_cleaned.shape[0],
             "columns": df_cleaned.shape[1],
@@ -434,36 +932,52 @@ async def upload_file(file: UploadFile = File(...)):
             "missing_values": int(df_cleaned.isnull().sum().sum())
         }
 
+        # Process numeric data for statistics
         numeric_df = df_cleaned.select_dtypes(include=["number"])
-        if numeric_df.empty or numeric_df.shape[1] == 0:
-                stats = "No numeric fields in data"
-        else:
-            stats = {
-                col: {
-                    "sum": numeric_df[col].sum().item(),
-                    "mean": numeric_df[col].mean().item(),
-                    "min": numeric_df[col].min().item(),
-                    "max": numeric_df[col].max().item(),
-                    "median": numeric_df[col].median().item(),
-                    "std_dev": numeric_df[col].std().item()
-                } for col in numeric_df.columns
+        stats = {}
+        if not numeric_df.empty:
+            for col in numeric_df.columns:
+                col_stats = {
+                    "sum": float(numeric_df[col].sum()),
+                    "mean": float(numeric_df[col].mean()),
+                    "min": float(numeric_df[col].min()),
+                    "max": float(numeric_df[col].max()),
+                    "median": float(numeric_df[col].median()),
+                    "std_dev": float(numeric_df[col].std())
                 }
+                stats[col] = col_stats
 
-
+        # Generate insights
         insights = generate_insights(df_cleaned)
-        visualizations = generate_visualizations(df_cleaned)
 
-        return {
+        # Update the response to include visualization data instead of images
+        response_data = {
+            "status": "success",
+            "message": "✅ File processed successfully",
             "filename": file.filename,
+            "path": f"/uploaded/{file.filename}",
+            "dashboard": dashboard_info,
             "summary": summary,
             "preview": preview,
             "statistics": stats,
             "insights": insights,
-            "visualizations": visualizations
+            "visualizations": visualization_data,  # Now contains data for frontend charts
+            "raw_data": {
+                "columns": df_cleaned.columns.tolist(),
+                "data": df_cleaned.head(100).to_dict(orient="records")
+            }
         }
 
+        return JSONResponse(content=response_data)
+
     except Exception as e:
-        return {"error": str(e)}
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Error processing file: {str(e)}"
+            }
+        )
 
 
 @app.post("/upload-image")
@@ -493,7 +1007,7 @@ async def upload_image(file: UploadFile = File(...)):
             buffer.write(content)
         
         try:
-            # Process the image using OCR (default to Excel format)
+            # Process the image using OCR
             output_path = process_image(file_path, 'excel')
             
             if not output_path:
@@ -505,6 +1019,12 @@ async def upload_image(file: UploadFile = File(...)):
             # Clean the data
             df_cleaned = df.dropna(how="all").dropna(axis=1, how="all")
             preview = df_cleaned.head().to_dict(orient="records")
+
+            # Generate dashboard title and metadata
+            dashboard_info = generate_dashboard_title(df_cleaned)
+
+            # Prepare visualization data
+            visualization_data = prepare_visualization_data(df_cleaned)
 
             # Generate summary statistics
             summary = {
@@ -530,21 +1050,21 @@ async def upload_image(file: UploadFile = File(...)):
                     } for col in numeric_df.columns
                 }
 
-            # Generate insights and visualizations
+            # Generate insights
             insights = generate_insights(df_cleaned)
-            visualizations = generate_visualizations(df_cleaned)
 
-            # Return all results
+            # Update the response to include visualization data instead of images
             return {
                 "status": "success",
                 "message": "✅ Image processed successfully",
                 "filename": os.path.basename(output_path),
                 "path": f"/uploaded/{os.path.basename(output_path)}",
+                "dashboard": dashboard_info,
                 "summary": summary,
                 "preview": preview,
                 "statistics": stats,
                 "insights": insights,
-                "visualizations": visualizations
+                "visualizations": visualization_data  # Now contains data for frontend charts
             }
             
         except Exception as e:
@@ -654,89 +1174,89 @@ async def upload_image(file: UploadFile = File(...)):
 #     except Exception as e:
 #         return {"error": str(e)}
 
-@app.post("/process-image")
-async def process_image_endpoint(
-    file: UploadFile = File(...),
-    output_format: str = Query("excel", enum=["excel", "csv"])
-):
-    """
-    Process an uploaded image to extract text and convert to Excel/CSV format
-    """
-    try:
-        # Save the uploaded file
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+# @app.post("/process-image")
+# async def process_image_endpoint(
+#     file: UploadFile = File(...),
+#     output_format: str = Query("excel", enum=["excel", "csv"])
+# ):
+#     """
+#     Process an uploaded image to extract text and convert to Excel/CSV format
+#     """
+#     try:
+#         # Save the uploaded file
+#         file_path = os.path.join(UPLOAD_DIR, file.filename)
+#         with open(file_path, "wb") as buffer:
+#             content = await file.read()
+#             buffer.write(content)
         
-        # Process the image using OCR
-        output_path = process_image(file_path, output_format)
+#         # Process the image using OCR
+#         output_path = process_image(file_path, output_format)
         
-        if output_path:
-            # Read the generated Excel/CSV file
-            if output_format == 'excel':
-                df = pd.read_excel(output_path)
-            else:
-                df = pd.read_csv(output_path)
+#         if output_path:
+#             # Read the generated Excel/CSV file
+#             if output_format == 'excel':
+#                 df = pd.read_excel(output_path)
+#             else:
+#                 df = pd.read_csv(output_path)
             
-            # Clean the data (same as your existing workflow)
-            df_cleaned = df.dropna(how="all").dropna(axis=1, how="all")
-            preview = df_cleaned.head().to_dict(orient="records")
+#             # Clean the data (same as your existing workflow)
+#             df_cleaned = df.dropna(how="all").dropna(axis=1, how="all")
+#             preview = df_cleaned.head().to_dict(orient="records")
 
-            # Generate summary statistics
-            summary = {
-                "rows": df_cleaned.shape[0],
-                "columns": df_cleaned.shape[1],
-                "columns_list": df_cleaned.columns.tolist(),
-                "missing_values": int(df_cleaned.isnull().sum().sum())
-            }
+#             # Generate summary statistics
+#             summary = {
+#                 "rows": df_cleaned.shape[0],
+#                 "columns": df_cleaned.shape[1],
+#                 "columns_list": df_cleaned.columns.tolist(),
+#                 "missing_values": int(df_cleaned.isnull().sum().sum())
+#             }
 
-            # Calculate numeric statistics
-            numeric_df = df_cleaned.select_dtypes(include=["number"])
-            if numeric_df.empty or numeric_df.shape[1] == 0:
-                stats = "No numeric fields in data"
-            else:
-                stats = {
-                    col: {
-                        "sum": numeric_df[col].sum().item(),
-                        "mean": numeric_df[col].mean().item(),
-                        "min": numeric_df[col].min().item(),
-                        "max": numeric_df[col].max().item(),
-                        "median": numeric_df[col].median().item(),
-                        "std_dev": numeric_df[col].std().item()
-                    } for col in numeric_df.columns
-                }
+#             # Calculate numeric statistics
+#             numeric_df = df_cleaned.select_dtypes(include=["number"])
+#             if numeric_df.empty or numeric_df.shape[1] == 0:
+#                 stats = "No numeric fields in data"
+#             else:
+#                 stats = {
+#                     col: {
+#                         "sum": numeric_df[col].sum().item(),
+#                         "mean": numeric_df[col].mean().item(),
+#                         "min": numeric_df[col].min().item(),
+#                         "max": numeric_df[col].max().item(),
+#                         "median": numeric_df[col].median().item(),
+#                         "std_dev": numeric_df[col].std().item()
+#                     } for col in numeric_df.columns
+#                 }
 
-            # Generate insights and visualizations
-            insights = generate_insights(df_cleaned)
-            visualizations = generate_visualizations(df_cleaned)
+#             # Generate insights and visualizations
+#             insights = generate_insights(df_cleaned)
+#             visualizations = generate_visualizations(df_cleaned)
 
-            # Return all results
-            return {
-                "status": "success",
-                "message": f"Image processed successfully. Output saved as {output_format}",
-                "filename": os.path.basename(output_path),
-                "path": f"/uploaded/{os.path.basename(output_path)}",
-                "summary": summary,
-                "preview": preview,
-                "statistics": stats,
-                "insights": insights,
-                "visualizations": visualizations
-            }
-        else:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "status": "error",
-                    "message": "Failed to process image"
-                }
-            )
+#             # Return all results
+#             return {
+#                 "status": "success",
+#                 "message": f"Image processed successfully. Output saved as {output_format}",
+#                 "filename": os.path.basename(output_path),
+#                 "path": f"/uploaded/{os.path.basename(output_path)}",
+#                 "summary": summary,
+#                 "preview": preview,
+#                 "statistics": stats,
+#                 "insights": insights,
+#                 "visualizations": visualizations
+#             }
+#         else:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={
+#                     "status": "error",
+#                     "message": "Failed to process image"
+#                 }
+#             )
             
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": "error",
-                "message": f"Error processing image: {str(e)}"
-            }
-        )
+#     except Exception as e:
+#         return JSONResponse(
+#             status_code=500,
+#             content={
+#                 "status": "error",
+#                 "message": f"Error processing image: {str(e)}"
+#             }
+#         )
