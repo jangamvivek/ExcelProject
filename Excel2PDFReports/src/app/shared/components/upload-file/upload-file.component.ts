@@ -1,5 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { AppService } from '../../../services/app.service';
+import { UploadResponse } from '../../../models/data.interface';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-upload-file',
@@ -15,58 +19,65 @@ export class UploadFileComponent {
   selectedImageName: string = '';
   selectedImage: File | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient, 
+    private appService: AppService,
+    private router: Router
+  ) {}
 
   ngOnInit(){
 
   }
 
+  isLoading = false;
   handleFileUpload(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) {
       console.warn('No file selected');
       return;
     }
-  
+
     const file = input.files[0];
     const allowedTypes = [
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/csv'
     ];
-  
-    // Normalize type to lowercase for safer comparison
+
     const fileType = file.type.toLowerCase();
-  
-    // Sometimes file.type might be empty for some browsers/files, so fallback to extension check
     const fileName = file.name.toLowerCase();
-    const isValidType = allowedTypes.includes(fileType) || fileName.endsWith('.csv') || fileName.endsWith('.xls') || fileName.endsWith('.xlsx');
-  
+    const isValidType =
+      allowedTypes.includes(fileType) ||
+      fileName.endsWith('.csv') ||
+      fileName.endsWith('.xls') ||
+      fileName.endsWith('.xlsx');
+
     if (!isValidType) {
       alert('Only Excel or CSV files are allowed.');
       return;
     }
-  
+
     this.selectedFileName = file.name;
     this.selectedFile = file;
-  
-    // Automatically send the file to the backend
-    this.uploadFileToBackend(file);
   }
   
 
   uploadFileToBackend(file: File): void {
+    this.isLoading = true;
     const formData = new FormData();
     formData.append('file', file);
 
-    this.http.post('http://localhost:8000/upload', formData).subscribe({
+    this.http.post<UploadResponse>(`${environment.apiUrl}upload`, formData).subscribe({
       next: (response) => {
         console.log('✅ File uploaded successfully:', response);
-        // You can show success message or update UI here
+        this.appService.setUploadData(response);
+        this.isLoading = false;
+        this.router.navigate(['/dashboard']);
       },
       error: (error) => {
         console.error('❌ Upload failed:', error);
         alert('Failed to upload file.');
+        this.isLoading = false;
       }
     });
   }
@@ -85,19 +96,21 @@ export class UploadFileComponent {
       alert('Please enter a valid URL.');
       return;
     }
-  
+    this.isLoading = true;
     // Use GET with query parameter
-    this.http.get('http://localhost:8000/scrape', {
+    this.http.get(`${environment.apiUrl}scrape`, {
       params: { url: this.urlInput }
     }).subscribe({
       next: (response) => {
         console.log('✅ URL sent successfully:', response);
         alert('URL sent successfully!');
         this.urlInput = '';
+        this.isLoading = false;
       },
       error: (error) => {
         console.error('❌ Sending URL failed:', error);
         alert('Failed to send URL.');
+        this.isLoading = false;
       }
     });
   }
@@ -120,16 +133,6 @@ export class UploadFileComponent {
   }
   
 
-  handleUpload(): void {
-    if (this.selectedFile) {
-      this.uploadSelectedFile();
-    } else if (this.urlInput.trim()) {
-      this.uploadUrlToBackend();
-    } else {
-      alert('Select a file or enter a URL.');
-    }
-  }
-
   handleImageUpload(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
@@ -139,7 +142,8 @@ export class UploadFileComponent {
     const imageType = image.type.toLowerCase();
     const imageName = image.name.toLowerCase();
 
-    const isValidType = allowedTypes.includes(imageType) ||
+    const isValidType =
+      allowedTypes.includes(imageType) ||
       imageName.endsWith('.png') ||
       imageName.endsWith('.jpg') ||
       imageName.endsWith('.jpeg') ||
@@ -152,23 +156,46 @@ export class UploadFileComponent {
 
     this.selectedImageName = image.name;
     this.selectedImage = image;
-    this.uploadImageToBackend(image);
+  }
+
+
+  handleUpload(): void {
+    if (this.selectedFile) {
+      this.uploadFileToBackend(this.selectedFile);
+    }
+
+    if (this.selectedImage) {
+      this.uploadImageToBackend(this.selectedImage);
+    }
+
+    if (!this.selectedFile && !this.selectedImage && this.urlInput.trim()) {
+      this.uploadUrlToBackend();
+    }
+
+    if (!this.selectedFile && !this.selectedImage && !this.urlInput.trim()) {
+      alert('Select a file/image or enter a URL.');
+    }
   }
 
   uploadImageToBackend(image: File): void {
+    this.isLoading = true;
     const formData = new FormData();
-    formData.append('file', image); // Ensure FastAPI endpoint expects 'image'
+    formData.append('file', image); // FastAPI should accept 'file'
 
-    this.http.post('http://localhost:8000/upload-image', formData).subscribe({
+    this.http.post(`${environment.apiUrl}upload-image`, formData).subscribe({
       next: (res) => {
         console.log('✅ Image uploaded:', res);
         alert('Image uploaded successfully!');
+        this.isLoading = false;
       },
       error: (err) => {
         console.error('❌ Image upload failed:', err);
         alert('Image upload failed!');
+        this.isLoading = false;
       }
     });
   }
+
+  
   
 }

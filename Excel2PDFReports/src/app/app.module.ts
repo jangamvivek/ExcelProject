@@ -8,6 +8,9 @@ import { FilePreviewComponent } from './shared/components/file-preview/file-prev
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { DashboardComponent } from './shared/components/dashboard/dashboard.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { CommonModule } from '@angular/common';
+import { NgApexchartsModule } from 'ng-apexcharts';
 
 @NgModule({
   declarations: [
@@ -21,7 +24,9 @@ import { DashboardComponent } from './shared/components/dashboard/dashboard.comp
     AppRoutingModule,
     HttpClientModule,
     FormsModule,
-    
+    NgbModule,
+    CommonModule,
+    NgApexchartsModule
   ],
   providers: [
     provideClientHydration(withEventReplay())

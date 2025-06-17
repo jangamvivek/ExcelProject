@@ -1,1 +1,406 @@
-<p>dashboard works!</p>
+<div class="dashboard-wrapper">
+  <nav class="navbar">
+    <button class="sidebar-toggle" (click)="toggleSidebar()">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="navbar-brand ml-5">{{ headerTitle }}</div>
+    <div class="navbar-right-items">
+      <button class="export-button">
+        <i class="bi bi-box-arrow-up"></i> Export
+      </button>
+      <i class="bi bi-person-circle profile-icon"></i>
+    </div>
+  </nav>
+
+  <div class="main-container" [class.sidebar-open]="isSidebarOpen">
+    <div class="sidebar">
+      <ul class="sidebar-nav">
+        <li class="d-flex flex-column align-items-center my-3">
+          <i class="bi bi-plus"></i>
+          <span class="mt-0 icon-text">Add</span>
+        </li>
+        <li class="d-flex flex-column align-items-center my-3">
+          <i class="bi bi-pencil"></i>
+          <span class="mt-0 icon-text">Edit</span>
+        </li>
+        <li class="d-flex flex-column align-items-center my-3">
+          <i class="bi bi-filter"></i>
+          <span class="mt-0 icon-text">Filter</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="content-area p-5">
+      <!-- Header Card -->
+      <div class="dashboard-title-card" (click)="openEditModal()" [ngStyle]="{ background: selectedColor || defaultBackground }">
+          <h1  [class.title-small]="selectedSize === 'small'"
+            [class.title-medium]="selectedSize === 'medium'" 
+            [class.title-large]="selectedSize === 'large'"
+            [ngClass]="selectedAlignment"
+            [style.color]="getTitleColor()">{{ headerTitle }}
+          </h1>
+      </div>
+
+
+
+
+      <!-- Edit Modal -->
+      <ng-template #editHeaderModal let-modal>
+        <div class="custom-side-modal">
+          <div class="modal-header p-0 mb-2 border-0">
+            <h6 class="fw-bold">Header</h6>
+            <button
+              type="button"
+              class="btn close-button"
+              aria-label="Close"
+              (click)="modal.dismiss()"
+            >
+              <span class="text-muted">&times;</span>
+            </button>
+          </div>
+
+          <div class="modal-body p-0">
+            <form>
+              <div class="mb-2">
+                <label class="form-label">Header Title</label>
+                <input
+                  type="text"
+                  [(ngModel)]="headerTitle"
+                  name="title"
+                  class="form-control"
+                  maxlength="50"
+                />
+                <small class="text-end d-block text-muted"
+                  >{{ headerDescription.length || 0 }} /50</small
+                >
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Description</label>
+                <textarea
+                  [(ngModel)]="headerDescription"
+                  name="description"
+                  rows="3"
+                  class="form-control"
+                  maxlength="300"
+                ></textarea>
+                <small class="text-end d-block text-muted"
+                  >{{ headerDescription.length || 0 }} /300</small
+                >
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Text Size</label>
+                <div class="text-size-group d-flex">
+                  <button
+                    class="size-option"
+                    [class.active]="selectedSize === 'small'"
+                    (click)="selectSize('small')"
+                  >
+                    Aa
+                  </button>
+                  <button
+                    class="size-option"
+                    [class.active]="selectedSize === 'medium'"
+                    (click)="selectSize('medium')"
+                  >
+                    Aa
+                  </button>
+                  <button
+                    class="size-option"
+                    [class.active]="selectedSize === 'large'"
+                    (click)="selectSize('large')"
+                  >
+                    Aa
+                  </button>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Text Alignment</label>
+                <div class="text-align-group d-flex gap-2">
+                  <button
+                    class="align-option"
+                    [ngClass]="{ active: selectedAlignment === 'left' }"
+                    (click)="selectAlignment('left')"
+                  >
+                    <i class="bi bi-text-left"></i>
+                  </button>
+                  <button
+                    class="align-option"
+                    [ngClass]="{ active: selectedAlignment === 'center' }"
+                    (click)="selectAlignment('center')"
+                  >
+                    <i class="bi bi-text-center"></i>
+                  </button>
+                  <button
+                    class="align-option"
+                    [ngClass]="{ active: selectedAlignment === 'right' }"
+                    (click)="selectAlignment('right')"
+                  >
+                    <i class="bi bi-text-right"></i>
+                  </button>
+                </div>
+              </div>
+              
+
+              <div class="mb-2">
+                <label class="form-label">Background Color</label>
+                <div class="d-flex flex-wrap gap-4">
+                  <div class="bg-swatch" 
+                       *ngFor="let color of bgColors"
+                       [ngStyle]="{ 'background': color }"
+                       [class.selected]="color === selectedColor"
+                       (click)="selectedColor = color">
+                  </div>
+                </div>                
+              </div>
+            </form>
+          </div>
+        </div>
+      </ng-template>
+
+      <div *ngIf="!hasData()" class="no-data-message">
+        <p>No data available. Please upload a file to see the dashboard.</p>
+      </div>
+
+      <div *ngIf="hasData()" class="dashboard-content">
+        <!-- Summary Section -->
+        <!-- <section class="card">
+          <p class="card-head">Data Summary</p>
+          <div class="summary-grid" *ngIf="getSummary()">
+            <div class="summary-item">
+              <h3>Rows</h3>
+              <p>{{ getSummary().rows }}</p>
+            </div>
+            <div class="summary-item">
+              <h3>Columns</h3>
+              <p>{{ getSummary().columns }}</p>
+            </div>
+            <div class="summary-item">
+              <h3>Missing Values</h3>
+              <p>{{ getSummary().missing_values }}</p>
+            </div>
+          </div>
+        </section> -->
+
+        <!-- Visualizations Section -->
+        <!-- <section class="card" *ngIf="getVisualizationUrls().length > 0">
+          <p class="card-head">Visualizations</p>
+          <div class="visualizations-grid">
+            <div
+              class="visualization-card"
+              *ngFor="let vizUrl of getVisualizationUrls()"
+            >
+              <img
+                [src]="vizUrl"
+                [alt]="'Data Visualization'"
+                class="visualization-image"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        </section> -->
+
+      <!-- Bar Charts -->
+      <div *ngIf="uploadData?.visualizations?.bar_charts?.length" class="row g-3 mb-4">
+        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.bar_charts">
+            <div class="card-body-chart">
+              <apx-chart 
+                [series]="getBarChartSeries(chart)"
+                [chart]="{ 
+                  type: 'bar', 
+                  height: 300,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [xaxis]="{ 
+                  categories: chart.data.labels,
+                  labels: { 
+                    style: { colors: '#6b7280', fontSize: '12px' }
+                  }
+                }"
+                [yaxis]="{ 
+                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                }"
+                [colors]="['#e879f9']"
+                [dataLabels]="{ enabled: false }"
+                [grid]="{ 
+                  borderColor: '#f1f5f9',
+                  strokeDashArray: 2
+                }"
+                [plotOptions]="{ 
+                  bar: { 
+                    columnWidth: '60%',
+                    borderRadius: 2
+                  }
+                }">
+              </apx-chart>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie Charts -->
+      <div *ngIf="uploadData?.visualizations?.pie_charts?.length" class="row g-3 mb-4">
+        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.pie_charts">
+            <div class="card-body-chart">
+              <apx-chart 
+                [series]="chart.data.values"
+                [chart]="{ 
+                  type: 'pie', 
+                  height: 300,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [labels]="chart.data.labels"
+                [colors]="['#e879f9', '#f472b6', '#ec4899', '#db2777', '#be185d']"
+                [legend]="{ 
+                  position: 'bottom',
+                  labels: { colors: '#6b7280' },
+                  fontSize: '12px'
+                }"
+                [dataLabels]="{ 
+                  enabled: true,
+                  style: { fontSize: '11px', colors: ['#fff'] }
+                }">
+              </apx-chart>
+          </div>
+        </div>
+      </div>
+
+      <!-- Histograms -->
+      <div *ngIf="uploadData?.visualizations?.histograms?.length" class="row g-3 mb-4">
+        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.histograms">
+            <div class="card-body-chart">
+              <apx-chart
+                *ngIf="chart?.data?.bins?.length && chart?.data?.values?.length"
+                [series]="getHistogramSeries(chart)"
+                [chart]="{ 
+                  type: 'bar', 
+                  height: 300,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [xaxis]="{ 
+                  categories: getHistogramLabels(chart),
+                  labels: { 
+                    rotate: -45,
+                    style: { colors: '#6b7280', fontSize: '12px' }
+                  }
+                }"
+                [yaxis]="{ 
+                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                }"
+                [colors]="['#e879f9']"
+                [dataLabels]="{ enabled: false }"
+                [grid]="{ 
+                  borderColor: '#f1f5f9',
+                  strokeDashArray: 2
+                }"
+                [plotOptions]="{ 
+                  bar: { 
+                    columnWidth: '80%',
+                    borderRadius: 2
+                  }
+                }">
+              </apx-chart>
+          </div>
+        </div>
+      </div>
+
+      <!-- Box Plots -->
+      <div *ngIf="uploadData?.visualizations?.box_plots?.length" class="row g-3 mb-4">
+        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.box_plots">
+          <div class="card-body-chart">
+              <apx-chart 
+                *ngIf="chart?.data?.values?.length"
+                [series]="[{ data: getBoxPlotSeries(chart) }]"
+                [chart]="{ 
+                  type: 'boxPlot', 
+                  height: 300,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [colors]="['#e879f9']"
+                [grid]="{ 
+                  borderColor: '#f1f5f9',
+                  strokeDashArray: 2
+                }"
+                [yaxis]="{ 
+                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                }">
+              </apx-chart>
+          </div>
+        </div>
+      </div>
+
+      <!-- Correlation Heatmap -->
+      <div *ngIf="uploadData?.visualizations?.correlation" class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card-body-chart">
+              <apx-chart 
+                [series]="getHeatmapSeries(uploadData.visualizations.correlation)"
+                [chart]="{ 
+                  type: 'heatmap', 
+                  height: 400,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [xaxis]="{ 
+                  categories: uploadData.visualizations.correlation.columns,
+                  labels: { 
+                    style: { colors: '#6b7280', fontSize: '12px' }
+                  }
+                }"
+                [yaxis]="{ 
+                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                }"
+                [colors]="['#e879f9']"
+                [dataLabels]="{ 
+                  enabled: true,
+                  style: { fontSize: '10px' }
+                }"
+                [grid]="{ 
+                  borderColor: '#f1f5f9'
+                }">
+              </apx-chart>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insights Section -->
+      <section class="card" *ngIf="getInsights().length > 0">
+        <p class="card-head">Key Insights</p>
+        <ul class="insights-list">
+          <li *ngFor="let insight of getInsights()">{{ insight }}</li>
+        </ul>
+      </section>
+
+        <!-- Statistics Section -->
+        <!-- <section class="card" *ngIf="getStatistics()">
+          <p class="card-head">Statistics</p>
+          <div class="statistics-grid">
+            <ng-container *ngFor="let stat of getStatistics() | keyvalue">
+              <div class="stat-card" *ngIf="stat.value">
+                <p style="font-size: 0.8rem; font-weight: 600">
+                  {{ stat.key }}
+                </p>
+                <div class="stat-details">
+                  <p>
+                    Mean: {{ getStatValue(stat, "mean") | number : "1.2-2" }}
+                  </p>
+                  <p>
+                    Median:
+                    {{ getStatValue(stat, "median") | number : "1.2-2" }}
+                  </p>
+                  <p>Min: {{ getStatValue(stat, "min") | number : "1.2-2" }}</p>
+                  <p>Max: {{ getStatValue(stat, "max") | number : "1.2-2" }}</p>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </section> -->
+      </div>
+    </div>
+  </div>
+</div>
