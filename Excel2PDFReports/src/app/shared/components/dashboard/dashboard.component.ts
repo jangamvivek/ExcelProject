@@ -4,6 +4,8 @@ import { UploadResponse } from '../../../models/data.interface';
 import { Subscription } from 'rxjs';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from '../../../../environments/environment';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 type StatisticValue = {
   sum: number;
@@ -205,16 +207,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
   
   // Box Plot Methods
+// getBoxPlotSeries(chart: any) {
+//   console.log('BoxPlot chart.data:', chart.data);
+//   return Array.isArray(chart.data)
+//     ? chart.data.map((d: any) => ({
+//         x: d.label,
+//         y: [d.min, d.q1, d.median, d.q3, d.max]
+//       }))
+//     : [];
+// }
 getBoxPlotSeries(chart: any) {
-  console.log('BoxPlot chart.data:', chart.data);
-  return Array.isArray(chart.data)
-    ? chart.data.map((d: any) => ({
-        x: d.label,
-        y: [d.min, d.q1, d.median, d.q3, d.max]
-      }))
-    : [];
+  if (!chart?.data) return [];
+  
+  return [{
+    name: chart.column,
+    data: [{
+      x: chart.column,
+      y: [
+        chart.data.min,
+        chart.data.q1,
+        chart.data.median,
+        chart.data.q3,
+        chart.data.max
+      ]
+    }]
+  }];
 }
-
 getBoxPlotMedian(chart: any): string {
   if (Array.isArray(chart.data) && chart.data.length > 0) {
     return chart.data[0].median?.toFixed(2) || 'N/A';
@@ -297,5 +315,85 @@ getHeatmapSeries(correlation: any) {
     }
     return labels;
   }
+    async downloadChart(elementId: string, filename: string) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      logging: false,
+      useCORS: true,
+      allowTaint: true
+    });
+    
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+
+async  downloadDashboardAsPDF() {
+  // Create a new PDF document
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const dashboardElement = document.getElementById('dashboard');
   
+  if (!dashboardElement) {
+    console.error('Dashboard element not found');
+    return;
+  }
+
+  // Show loading indicator
+  const loadingElement = document.createElement('div');
+  loadingElement.style.position = 'fixed';
+  loadingElement.style.top = '0';
+  loadingElement.style.left = '0';
+  loadingElement.style.width = '100%';
+  loadingElement.style.height = '100%';
+  loadingElement.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  loadingElement.style.display = 'flex';
+  loadingElement.style.justifyContent = 'center';
+  loadingElement.style.alignItems = 'center';
+  loadingElement.style.zIndex = '10000';
+  loadingElement.innerHTML = '<div style="color: white; font-size: 24px;">Generating PDF...</div>';
+  document.body.appendChild(loadingElement);
+
+  try {
+    // Get the dashboard element dimensions
+    const width = dashboardElement.scrollWidth;
+    const height = dashboardElement.scrollHeight;
+    
+    // Calculate the PDF dimensions
+    const pdfWidth = doc.internal.pageSize.getWidth() - 20;
+    const pdfHeight = (height * pdfWidth) / width;
+    
+    // Create canvas from the dashboard
+    const canvas = await html2canvas(dashboardElement, {
+      scale: 2,
+      logging: false,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: width,
+      windowHeight: height
+    });
+
+    // Add the canvas image to PDF
+    const imgData = canvas.toDataURL('image/png');
+    doc.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight, undefined, 'FAST');
+
+    // Save the PDF
+    doc.save('dashboard-report.pdf');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    // Remove loading indicator
+    document.body.removeChild(loadingElement);
+  }
+}
+// Add this to your component class
+async downloadDashboardPDF() {debugger
+  await this.downloadDashboardAsPDF();
+}
 }

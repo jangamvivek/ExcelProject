@@ -5,7 +5,7 @@
     </button>
     <div class="navbar-brand ml-5">{{ headerTitle }}</div>
     <div class="navbar-right-items">
-      <button class="export-button">
+      <button class="export-button" (click)="downloadDashboardPDF()">
         <i class="bi bi-box-arrow-up"></i> Export
       </button>
       <i class="bi bi-person-circle profile-icon"></i>
@@ -31,16 +31,7 @@
     </div>
 
     <div class="content-area p-5">
-      <!-- Header Card -->
-      <div class="dashboard-title-card" (click)="openEditModal()" [ngStyle]="{ background: selectedColor || defaultBackground }">
-          <h1  [class.title-small]="selectedSize === 'small'"
-            [class.title-medium]="selectedSize === 'medium'" 
-            [class.title-large]="selectedSize === 'large'"
-            [ngClass]="selectedAlignment"
-            [style.color]="getTitleColor()">{{ headerTitle }}
-          </h1>
-      </div>
-
+   
 
 
 
@@ -164,7 +155,18 @@
         <p>No data available. Please upload a file to see the dashboard.</p>
       </div>
 
-      <div *ngIf="hasData()" class="dashboard-content">
+   <!-- Header Card -->
+    <div id="dashboard">
+      <div class="dashboard-title-card" (click)="openEditModal()" [ngStyle]="{ background: selectedColor || defaultBackground }">
+          <h1  [class.title-small]="selectedSize === 'small'"
+            [class.title-medium]="selectedSize === 'medium'" 
+            [class.title-large]="selectedSize === 'large'"
+            [ngClass]="selectedAlignment"
+            [style.color]="getTitleColor()">{{ headerTitle }}
+          </h1>
+      </div>
+
+      <div *ngIf="hasData()" class="dashboard-content" >
         <!-- Summary Section -->
         <!-- <section class="card">
           <p class="card-head">Data Summary</p>
@@ -203,68 +205,71 @@
         </section> -->
 
       <!-- Bar Charts -->
-      <div *ngIf="uploadData?.visualizations?.bar_charts?.length" class="row g-3 mb-4">
-        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.bar_charts">
-            <div class="card-body-chart">
-              <apx-chart 
-              [series]="getBarChartSeries(chart)"
-              [chart]="{ 
-                type: 'bar', 
-                height: 250,
-                toolbar: { show: false },
-                background: 'transparent'
-              }"
-              [xaxis]="{ 
-                categories: chart.data.labels,
-                labels: { 
-                  style: { 
-                    colors: getXAxisLabelColors(chart.data.labels),
-                    fontSize: '11px',
-                    fontWeight: '600'
-                  },
-                  rotate: -45
-                }
-              }"
-              [yaxis]="{ 
-                labels: { 
-                  style: { 
-                    colors: '#6b7280', 
-                    fontSize: '12px',
-                    fontWeight: '500'
+      <div class="boxplot-container">
+        <div *ngIf="uploadData?.visualizations?.bar_charts?.length"  class="row g-3 mb-4" >
+          <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.bar_charts;let i = index">
+              <div class="card-body-chart">
+              <h2 class="h6 mb-0" [id]="'barChartTitle' + i">{{ chart.column }} Distribution</h2>
+                <apx-chart 
+                [series]="getBarChartSeries(chart)"
+                [chart]="{ 
+                  type: 'bar', 
+                  height: 250,
+                  toolbar: { show: false },
+                  background: 'transparent'
+                }"
+                [xaxis]="{ 
+                  categories: chart.data.labels,
+                  labels: { 
+                    style: { 
+                      colors: getXAxisLabelColors(chart.data.labels),
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    },
+                    rotate: -45
                   }
-                }
-              }"
-              [colors]="getBarColors(chart.data.labels)"
-              [dataLabels]="{ 
-                enabled: true,
-                style: {
-                  fontSize: '10px',
-                  colors: ['#ffffff'],
-                  fontWeight: 'bold'
-                }
-              }"
-              [grid]="{ 
-                borderColor: '#f1f5f9',
-                strokeDashArray: 2
-              }"
-              [plotOptions]="{ 
-                bar: { 
-                  columnWidth: '35%',
-                  borderRadius: 3,
-                  distributed: true
-                }
-              }"
-              [legend]="{ show: false }">
-              </apx-chart>
+                }"
+                [yaxis]="{ 
+                  labels: { 
+                    style: { 
+                      colors: '#6b7280', 
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }
+                  }
+                }"
+                [colors]="getBarColors(chart.data.labels)"
+                [dataLabels]="{ 
+                  enabled: true,
+                  style: {
+                    fontSize: '10px',
+                    colors: ['#ffffff'],
+                    fontWeight: 'bold'
+                  }
+                }"
+                [grid]="{ 
+                  borderColor: '#f1f5f9',
+                  strokeDashArray: 2
+                }"
+                [plotOptions]="{ 
+                  bar: { 
+                    columnWidth: '35%',
+                    borderRadius: 3,
+                    distributed: true
+                  }
+                }"
+                [legend]="{ show: false }">
+                </apx-chart>
 
-              <!-- Color Legend -->
-            <div class="chart-legend mt-3">
-              <div class="legend-items">
-                <div *ngFor="let label of chart.data.labels; let j = index" 
-                    class="legend-item">
-                  <span class="legend-color" 
-                        [style.background]="getColorForIndex(j)"></span>
-                  <span class="legend-label">{{ label }}</span>
+                <!-- Color Legend -->
+              <div class="chart-legend mt-3">
+                <div class="legend-items">
+                  <div *ngFor="let label of chart.data.labels; let j = index" 
+                      class="legend-item">
+                    <span class="legend-color" 
+                          [style.background]="getColorForIndex(j)"></span>
+                    <span class="legend-label">{{ label }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -273,77 +278,125 @@
       </div>
 
       <!-- Pie Charts -->
-      <div *ngIf="uploadData?.visualizations?.pie_charts?.length" class="row g-3 mb-4">
-        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.pie_charts">
-            <div class="card-body-chart">
-              <apx-chart 
-                [series]="chart.data.values"
-                [chart]="{ 
-                  type: 'pie', 
-                  height: 300,
-                  toolbar: { show: false },
-                  background: 'transparent'
-                }"
-                [labels]="chart.data.labels"
-                [colors]="['#e879f9', '#f472b6', '#ec4899', '#db2777', '#be185d']"
-                [legend]="{ 
-                  position: 'bottom',
-                  labels: { colors: '#6b7280' },
-                  fontSize: '12px'
-                }"
-                [dataLabels]="{ 
-                  enabled: true,
-                  style: { fontSize: '11px', colors: ['#fff'] }
-                }">
-              </apx-chart>
+      <div class="pie-chart-container" >
+        <div *ngIf="uploadData?.visualizations?.pie_charts?.length" class="row g-3 mb-4">
+          <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.pie_charts;let i = index">
+              <div class="card-body-chart">
+                <h2 class="h6 mb-0" [id]="'pieChartTitle' + i">{{ chart.column }} Distribution</h2>
+                <apx-chart 
+                  [series]="chart.data.values"
+                  [chart]="{ 
+                    type: 'pie', 
+                    height: 300,
+                    toolbar: { show: false },
+                    background: 'transparent'
+                  }"
+                  [labels]="chart.data.labels"
+                  [colors]="['#e879f9', '#f472b6', '#ec4899', '#db2777', '#be185d']"
+                  [legend]="{ 
+                    position: 'bottom',
+                    labels: { colors: '#6b7280' },
+                    fontSize: '12px'
+                  }"
+                  [dataLabels]="{ 
+                    enabled: true,
+                    style: { fontSize: '11px', colors: ['#fff'] }
+                  }">
+                </apx-chart>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Histograms -->
-      <div *ngIf="uploadData?.visualizations?.histograms?.length" class="row g-3 mb-4">
-        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.histograms">
-            <div class="card-body-chart">
-              <apx-chart
-                *ngIf="chart?.data?.bins?.length && chart?.data?.values?.length"
-                [series]="getHistogramSeries(chart)"
-                [chart]="{ 
-                  type: 'bar', 
-                  height: 250,
-                  toolbar: { show: false },
-                  background: 'transparent'
-                }"
-                [xaxis]="{ 
-                  categories: getHistogramLabels(chart),
-                  labels: { 
-                    rotate: -45,
-                    style: { colors: '#6b7280', fontSize: '12px' }
-                  }
-                }"
-                [yaxis]="{ 
-                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
-                }"
-                [colors]="['#e879f9']"
-                [dataLabels]="{ enabled: false }"
-                [grid]="{ 
-                  borderColor: '#f1f5f9',
-                  strokeDashArray: 2
-                }"
-                [plotOptions]="{ 
-                  bar: { 
-                    columnWidth: '35%',
-                    borderRadius: 2
-                  }
-                }">
-              </apx-chart>
+       <div class="histogram-container">
+        <div *ngIf="uploadData?.visualizations?.histograms?.length"  class="row g-3 mb-4">
+          <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.histograms;let i = index">
+              <div class="card-body-chart">
+                  <h2 class="h6 mb-0" [id]="'histogramTitle' + i">{{ chart.column }} Distribution</h2>
+                <apx-chart
+                  *ngIf="chart?.data?.bins?.length && chart?.data?.values?.length"
+                  [series]="getHistogramSeries(chart)"
+                  [chart]="{ 
+                    type: 'bar', 
+                    height: 250,
+                    toolbar: { show: false },
+                    background: 'transparent'
+                  }"
+                  [xaxis]="{ 
+                    categories: getHistogramLabels(chart),
+                    labels: { 
+                      rotate: -45,
+                      style: { colors: '#6b7280', fontSize: '12px' }
+                    }
+                  }"
+                  [yaxis]="{ 
+                    labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                  }"
+                  [colors]="['#e879f9']"
+                  [dataLabels]="{ enabled: false }"
+                  [grid]="{ 
+                    borderColor: '#f1f5f9',
+                    strokeDashArray: 2
+                  }"
+                  [plotOptions]="{ 
+                    bar: { 
+                      columnWidth: '35%',
+                      borderRadius: 2
+                    }
+                  }">
+                </apx-chart>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Box Plots -->
-      <div *ngIf="uploadData?.visualizations?.box_plots?.length" class="row g-3 mb-4">
-        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.box_plots">
+      <div class="boxplot-container">
+        <div *ngIf="uploadData?.visualizations?.box_plots?.length"  class="row g-3 mb-4">
+            <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.box_plots; let i = index">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h2 class="h6 mb-0" [id]="'boxPlotTitle' + i">{{ chart.column }} Distribution</h2>
+                  <!-- <button class="btn btn-sm btn-outline-secondary" (click)="downloadChart('boxPlot' + i, chart.column + '-boxplot.png')">
+                    <i class="bi bi-download"></i>
+                  </button> -->
+                </div>
+                <div class="card-body-chart">
+                  <div [id]="'boxPlot' + i" aria-labelledby="'boxPlotTitle' + i">
+                    <apx-chart 
+                      [series]="getBoxPlotSeries(chart)"
+                      [chart]="{ 
+                        type: 'boxPlot', 
+                        height: 300,
+                        toolbar: { show: false },
+                        background: 'transparent',
+                      
+                      }"
+                      [colors]="['#e879f9']"
+                      [grid]="{ 
+                        borderColor: '#f1f5f9',
+                        strokeDashArray: 2
+                      }"
+                      [yaxis]="{ 
+                        labels: { style: { colors: '#6b7280', fontSize: '12px' } }
+                      }"
+                      [tooltip]="{
+                        enabled: true,
+                        fillSeriesColor: true,
+                        theme: 'light'
+                      }">
+                    </apx-chart>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </div>
+      </div>
+      <!-- <div *ngIf="uploadData?.visualizations?.box_plots?.length" class="row g-3 mb-4">
+        <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.box_plots;let i = index">
           <div class="card-body-chart">
+               <h2 class="h6 mb-0" [id]="'boxPlotTitle' + i">{{ chart.column }} Distribution</h2>
               <apx-chart 
                 *ngIf="chart?.data?.values?.length"
                 [series]="[{ data: getBoxPlotSeries(chart) }]"
@@ -364,12 +417,15 @@
               </apx-chart>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Correlation Heatmap -->
-      <div *ngIf="uploadData?.visualizations?.correlation" class="row g-3 mb-4">
+       <div class="heatmap-container">
+      <div *ngIf="uploadData?.visualizations?.correlation"  class="row g-3 mb-4">
         <div class="col-12">
             <div class="card-body-chart">
+              
+              
               <apx-chart 
                 [series]="getHeatmapSeries(uploadData.visualizations.correlation)"
                 [chart]="{ 
@@ -398,7 +454,7 @@
               </apx-chart>
           </div>
         </div>
-      </div>
+      </div></div>
 
       <!-- Insights Section -->
       <section class="card" *ngIf="getInsights().length > 0">
@@ -433,6 +489,7 @@
           </div>
         </section> -->
       </div>
+    </div>
     </div>
   </div>
 </div>
