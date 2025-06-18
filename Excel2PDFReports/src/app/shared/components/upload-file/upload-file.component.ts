@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppService } from '../../../services/app.service';
@@ -30,6 +30,7 @@ export class UploadFileComponent {
   }
 
   isLoading = false;
+  progressValue = 0;
   handleFileUpload(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) {
@@ -64,53 +65,112 @@ export class UploadFileComponent {
 
   uploadFileToBackend(file: File): void {
     this.isLoading = true;
+    this.progressValue = 0;
     const formData = new FormData();
     formData.append('file', file);
-
-    this.http.post<UploadResponse>(`${environment.apiUrl}upload`, formData).subscribe({
-      next: (response) => {
-        console.log('✅ File uploaded successfully:', response);
-        this.appService.setUploadData(response);
-        this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+  
+    this.http.post<UploadResponse>(`${environment.apiUrl}upload`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    }).subscribe({
+      next: (event: HttpEvent<UploadResponse>) => {
+        switch (event.type) {
+          case HttpEventType.UploadProgress:
+            if (event.total) {
+              this.progressValue = Math.round((event.loaded / event.total) * 100);
+              console.log(`Upload progress: ${this.progressValue}%`);
+            }
+            break;
+          case HttpEventType.Response:
+            console.log('✅ File uploaded successfully:', event.body);
+            this.appService.setUploadData(event.body!);
+            this.isLoading = false;
+            this.progressValue = 100;
+            this.router.navigate(['/dashboard']);
+            break;
+        }
       },
       error: (error) => {
         console.error('❌ Upload failed:', error);
         alert('Failed to upload file.');
         this.isLoading = false;
+        this.progressValue = 0;
       }
     });
   }
-
-  uploadSelectedFile(): void {
-    if (this.selectedFile) {
-      this.uploadFileToBackend(this.selectedFile);
-    } else {
-      alert('No file selected to upload.');
-    }
+  
+  uploadImageToBackend(image: File): void {
+    this.isLoading = true;
+    this.progressValue = 0;
+    const formData = new FormData();
+    formData.append('file', image);
+  
+    this.http.post(`${environment.apiUrl}upload-image`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    }).subscribe({
+      next: (event: HttpEvent<any>) => {
+        switch (event.type) {
+          case HttpEventType.UploadProgress:
+            if (event.total) {
+              this.progressValue = Math.round((event.loaded / event.total) * 100);
+              console.log(`Image upload progress: ${this.progressValue}%`);
+            }
+            break;
+          case HttpEventType.Response:
+            console.log('✅ Image uploaded:', event.body);
+            alert('Image uploaded successfully!');
+            this.isLoading = false;
+            this.progressValue = 100;
+            break;
+        }
+      },
+      error: (err) => {
+        console.error('❌ Image upload failed:', err);
+        alert('Image upload failed!');
+        this.isLoading = false;
+        this.progressValue = 0;
+      }
+    });
   }
   
-  // Send URL to backend for scraping
+  // For URL scraping (since it's not a file upload, simulate progress)
   uploadUrlToBackend(): void {
     if (!this.urlInput || !this.isValidUrl(this.urlInput)) {
       alert('Please enter a valid URL.');
       return;
     }
+    
     this.isLoading = true;
-    // Use GET with query parameter
+    this.progressValue = 0;
+    
+    // Simulate progress for URL scraping
+    const progressInterval = setInterval(() => {
+      if (this.progressValue < 90) {
+        this.progressValue += 10;
+      }
+    }, 300);
+  
     this.http.get(`${environment.apiUrl}scrape`, {
       params: { url: this.urlInput }
     }).subscribe({
       next: (response) => {
+        clearInterval(progressInterval);
+        this.progressValue = 100;
         console.log('✅ URL sent successfully:', response);
         alert('URL sent successfully!');
         this.urlInput = '';
-        this.isLoading = false;
+        setTimeout(() => {
+          this.isLoading = false;
+          this.progressValue = 0;
+        }, 500);
       },
       error: (error) => {
+        clearInterval(progressInterval);
         console.error('❌ Sending URL failed:', error);
         alert('Failed to send URL.');
         this.isLoading = false;
+        this.progressValue = 0;
       }
     });
   }
@@ -177,25 +237,24 @@ export class UploadFileComponent {
     }
   }
 
-  uploadImageToBackend(image: File): void {
-    this.isLoading = true;
-    const formData = new FormData();
-    formData.append('file', image); // FastAPI should accept 'file'
+  // uploadImageToBackend(image: File): void {
+  //   this.isLoading = true;
+  //   const formData = new FormData();
+  //   formData.append('file', image); // FastAPI should accept 'file'
 
-    this.http.post(`${environment.apiUrl}upload-image`, formData).subscribe({
-      next: (res) => {
-        console.log('✅ Image uploaded:', res);
-        alert('Image uploaded successfully!');
-        this.isLoading = false;
-      },
-      error: (err) => {
-        console.error('❌ Image upload failed:', err);
-        alert('Image upload failed!');
-        this.isLoading = false;
-      }
-    });
-  }
+  //   this.http.post(`${environment.apiUrl}upload-image`, formData).subscribe({
+  //     next: (res) => {
+  //       console.log('✅ Image uploaded:', res);
+  //       alert('Image uploaded successfully!');
+  //       this.isLoading = false;
+  //     },
+  //     error: (err) => {
+  //       console.error('❌ Image upload failed:', err);
+  //       alert('Image upload failed!');
+  //       this.isLoading = false;
+  //     }
+  //   });
+  // }
 
-  
   
 }

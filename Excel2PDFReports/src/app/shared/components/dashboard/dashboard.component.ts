@@ -51,7 +51,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   
     '#000000',     // Black
     'linear-gradient(90deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)', // Dark gradient
-    'linear-gradient(90deg, #000428 0%, #004e92 100%)',              // Blue gradient
+    'linear-gradient(90deg, #004e92 0%, #000428 100%)',              // Blue gradient
     
     'linear-gradient(90deg, #ff512f 0%, #dd2476 100%)',              // Red gradient
     'linear-gradient(90deg, #e1eec3 0%, #f05053 100%)',              // Soft pink/yellow
@@ -65,13 +65,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
       '#000000',
       '#2a86f7',           
       'linear-gradient(90deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%)',
-      'linear-gradient(90deg, #000428 0%, #004e92 100%)',
+      'linear-gradient(90deg, #e1eec3 0%, #f05053 100%)', 
+      'linear-gradient(90deg, #004e92 0%, #000428 100%)',  
       'linear-gradient(90deg, #ff512f 0%, #dd2476 100%)',
     ];
   
     return darkBackgrounds.includes(this.selectedColor) ? 'white' : 'black';
   }
   
+  private chartColors = [
+    '#ffacac', //'#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    // '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    // '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
+  ];
   
   @ViewChild('editHeaderModal') editHeaderModal: any;
 
@@ -182,7 +188,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getBarChartSeries(chart: any) {
     return [{
       name: chart.column,
-      data: chart.data.values // or chart.data.percentages based on what you want to show
+      data: chart.data.values.map((value: any, index: number) => ({
+        x: chart.data.labels[index],
+        y: value,
+        fillColor: this.getColorForIndex(index)
+      }))
     }];
   }
 
@@ -194,52 +204,98 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }];
   }
   
-  getBoxPlotSeries(chart: any) {
-    console.log('BoxPlot chart.data:', chart.data);
-    return Array.isArray(chart.data)
-      ? chart.data.map((d: any) => ({
-          x: d.label,
-          y: [d.min, d.q1, d.median, d.q3, d.max]
-        }))
-      : [];
+  // Box Plot Methods
+getBoxPlotSeries(chart: any) {
+  console.log('BoxPlot chart.data:', chart.data);
+  return Array.isArray(chart.data)
+    ? chart.data.map((d: any) => ({
+        x: d.label,
+        y: [d.min, d.q1, d.median, d.q3, d.max]
+      }))
+    : [];
+}
+
+getBoxPlotMedian(chart: any): string {
+  if (Array.isArray(chart.data) && chart.data.length > 0) {
+    return chart.data[0].median?.toFixed(2) || 'N/A';
   }
-  
-  
-  getHeatmapSeries(correlation: any) {
-    const series = [];
-    const columns = correlation.columns;
-    const data = correlation.data;
-  
-    for (let i = 0; i < columns.length; i++) {
-      series.push({
-        name: columns[i],
-        data: data[i].map((val: number, idx: number) => ({
-          x: columns[idx],
-          y: val
-        }))
-      });
-    }
-    return series;
+  return 'N/A';
+}
+
+getBoxPlotRange(chart: any): string {
+  if (Array.isArray(chart.data) && chart.data.length > 0) {
+    const data = chart.data[0];
+    return `${data.min?.toFixed(2)} - ${data.max?.toFixed(2)}` || 'N/A';
   }
+  return 'N/A';
+}
   
+  // Generate colors for bar chart
+getBarColors(labels: string[]): string[] {
+  return labels.map((_, index) => this.getColorForIndex(index));
+}
+
+// Generate colors for X-axis labels
+getXAxisLabelColors(labels: string[]): string[] {
+  return labels.map((_, index) => this.getColorForIndex(index));
+}
+// Pie Chart Methods
+getPieColors(labels: string[]): string[] {
+  return labels.map((_, index) => this.getColorForIndex(index));
+}
+
+
+
+// Get color for specific index
+getColorForIndex(index: number): string {
+  return this.chartColors[index % this.chartColors.length];
+}
+  
+  // Heatmap Methods
+getHeatmapSeries(correlation: any) {
+  const series = [];
+  const columns = correlation.columns;
+  const data = correlation.data;
+
+  for (let i = 0; i < columns.length; i++) {
+    series.push({
+      name: columns[i],
+      data: data[i].map((val: number, idx: number) => ({
+        x: columns[idx],
+        y: val
+      }))
+    });
+  }
+  return series;
+}
+  
+  // Histogram Methods
   getHistogramSeries(chart: any) {
     return [{
       name: chart.column,
-      data: chart.data.values
+      data: chart.data.values.map((value: any, index: number) => ({
+        x: this.getHistogramLabels(chart)[index],
+        y: value,
+        fillColor: this.getColorForIndex(index)
+      }))
     }];
+  }
+
+  getHistogramColors(chart: any): string[] {
+    return chart.data.values.map((_: any, index: number) => this.getColorForIndex(index));
+  }
+
+  getHistogramLabelColors(chart: any): string[] {
+    return chart.data.values.map((_: any, index: number) => this.getColorForIndex(index));
   }
   
   getHistogramLabels(chart: any) {
-    // Convert bin edges into readable label ranges like "5000-6000"
     const bins = chart.data.bins;
     const labels = [];
-  
     for (let i = 0; i < bins.length - 1; i++) {
       labels.push(`${Math.round(bins[i])}-${Math.round(bins[i + 1])}`);
     }
-  
     return labels;
   }
-  
   
 }

@@ -1,5 +1,16 @@
 <div class="min-vh-100 d-flex justify-content-center align-items-center bg-dark text-white">
   <div class="text-center w-100 px-3" style="max-width: 800px;">
+    <!-- Loader Overlay -->
+    <div *ngIf="isLoading" class="loader-overlay mb-4">
+      <div class="loader-content">
+        <p class="loader-text text-start">Generating...</p>
+        <div class="progress-container">
+          <div class="progress-bar" [style.width.%]="progressValue"></div>
+        </div>
+        <p class="progress-text">{{ progressValue }}% Complete</p>
+      </div>
+    </div>
+
     <h2 class="mb-4">What's on the agenda today?</h2>
     
     <!-- Input Group -->
@@ -80,10 +91,4 @@
   </div>
 </div>
 
-<!-- Loader Overlay -->
-<div *ngIf="isLoading" class="loader-overlay">
-  <div class="loader-content">
-    <div class="dot-typing"></div>
-    <p class="loader-text">Generating<span class="dots">...</span></p>
-  </div>
-</div>
+

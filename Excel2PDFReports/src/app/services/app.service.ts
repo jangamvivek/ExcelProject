@@ -11,6 +11,8 @@ export class AppService {
   private apiUrl = environment.apiUrl;
   private uploadDataSubject: BehaviorSubject<UploadResponse | null>;
   public uploadData$: Observable<UploadResponse | null>;
+  private chartDataSubject = new BehaviorSubject<any>(null);
+  public chartData$ = this.chartDataSubject.asObservable();
 
   constructor(private http: HttpClient) {
     let initialData: UploadResponse | null = null;
@@ -36,6 +38,10 @@ export class AppService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<UploadResponse>(`${this.apiUrl}/upload`, formData);
+  }
+
+  updateChartData(data: any) {
+    this.chartDataSubject.next(data);
   }
 
   setUploadData(data: UploadResponse): void {

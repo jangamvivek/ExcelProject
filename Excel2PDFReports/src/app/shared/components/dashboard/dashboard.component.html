@@ -207,35 +207,67 @@
         <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.bar_charts">
             <div class="card-body-chart">
               <apx-chart 
-                [series]="getBarChartSeries(chart)"
-                [chart]="{ 
-                  type: 'bar', 
-                  height: 300,
-                  toolbar: { show: false },
-                  background: 'transparent'
-                }"
-                [xaxis]="{ 
-                  categories: chart.data.labels,
-                  labels: { 
-                    style: { colors: '#6b7280', fontSize: '12px' }
+              [series]="getBarChartSeries(chart)"
+              [chart]="{ 
+                type: 'bar', 
+                height: 250,
+                toolbar: { show: false },
+                background: 'transparent'
+              }"
+              [xaxis]="{ 
+                categories: chart.data.labels,
+                labels: { 
+                  style: { 
+                    colors: getXAxisLabelColors(chart.data.labels),
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  },
+                  rotate: -45
+                }
+              }"
+              [yaxis]="{ 
+                labels: { 
+                  style: { 
+                    colors: '#6b7280', 
+                    fontSize: '12px',
+                    fontWeight: '500'
                   }
-                }"
-                [yaxis]="{ 
-                  labels: { style: { colors: '#6b7280', fontSize: '12px' } }
-                }"
-                [colors]="['#e879f9']"
-                [dataLabels]="{ enabled: false }"
-                [grid]="{ 
-                  borderColor: '#f1f5f9',
-                  strokeDashArray: 2
-                }"
-                [plotOptions]="{ 
-                  bar: { 
-                    columnWidth: '60%',
-                    borderRadius: 2
-                  }
-                }">
+                }
+              }"
+              [colors]="getBarColors(chart.data.labels)"
+              [dataLabels]="{ 
+                enabled: true,
+                style: {
+                  fontSize: '10px',
+                  colors: ['#ffffff'],
+                  fontWeight: 'bold'
+                }
+              }"
+              [grid]="{ 
+                borderColor: '#f1f5f9',
+                strokeDashArray: 2
+              }"
+              [plotOptions]="{ 
+                bar: { 
+                  columnWidth: '35%',
+                  borderRadius: 3,
+                  distributed: true
+                }
+              }"
+              [legend]="{ show: false }">
               </apx-chart>
+
+              <!-- Color Legend -->
+            <div class="chart-legend mt-3">
+              <div class="legend-items">
+                <div *ngFor="let label of chart.data.labels; let j = index" 
+                    class="legend-item">
+                  <span class="legend-color" 
+                        [style.background]="getColorForIndex(j)"></span>
+                  <span class="legend-label">{{ label }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -277,7 +309,7 @@
                 [series]="getHistogramSeries(chart)"
                 [chart]="{ 
                   type: 'bar', 
-                  height: 300,
+                  height: 250,
                   toolbar: { show: false },
                   background: 'transparent'
                 }"
@@ -299,7 +331,7 @@
                 }"
                 [plotOptions]="{ 
                   bar: { 
-                    columnWidth: '80%',
+                    columnWidth: '35%',
                     borderRadius: 2
                   }
                 }">

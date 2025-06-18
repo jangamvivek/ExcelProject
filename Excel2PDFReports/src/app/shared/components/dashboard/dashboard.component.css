@@ -606,12 +606,76 @@ h1.right {
   background: #ffffff;
 }
 
-.chart-title {
+/* .chart-title {
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+} */
+.chart-title {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
+
+.chart-subtitle {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 5px;
+}
+
+.chart-legend {
+  border-top: 2px solid #f1f5f9;
+  padding-top: 15px;
+  color: #FF6B6B;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); */
+  transition: all 0.3s ease;
+}
+
+.legend-item:hover {
+  /* transform: translateY(-2px); */
+  background-color: #ffacac;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.legend-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: capitalize;
+}
+
 
 .card-body-chart {
   padding: 20px;
