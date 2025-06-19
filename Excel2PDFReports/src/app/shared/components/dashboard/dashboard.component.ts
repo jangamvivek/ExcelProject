@@ -6,6 +6,8 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from '../../../../environments/environment';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import PptxGenJS from 'pptxgenjs';
+
 
 type StatisticValue = {
   sum: number;
@@ -15,6 +17,9 @@ type StatisticValue = {
   median: number;
   std_dev: number;
 };
+
+declare var bootstrap: any;
+// declare var PptxGenJS: any;
 
 @Component({
   selector: 'app-dashboard',
@@ -35,7 +40,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedAlignment = 'center';
   defaultBackground = 'linear-gradient(90deg, #fbc2eb 0%, #a6c1ee 100%)';
   selectedColor: string = this.defaultBackground;
-
+  exportModal: any;
 
   protected readonly StatisticValueType = {
     sum: 0,
@@ -110,6 +115,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   openEditModal() {
     this.modalService.open(this.editHeaderModal, { size: 'lg', centered: true });
+  }
+
+  openExportModal() {
+    const modalElement = document.getElementById('exportModal');
+    this.exportModal = new bootstrap.Modal(modalElement);
+    this.exportModal.show();
   }
 
   openEditHeader(modal: TemplateRef<any>) {
@@ -333,67 +344,227 @@ getHeatmapSeries(correlation: any) {
   }
 
 
-async  downloadDashboardAsPDF() {
-  // Create a new PDF document
-  const doc = new jsPDF('p', 'mm', 'a4');
-  const dashboardElement = document.getElementById('dashboard');
-  
-  if (!dashboardElement) {
-    console.error('Dashboard element not found');
-    return;
+async downloadDashboardAsPDF() {
+  let originalTop:any
+   let originalPosition:any
+    let originalOverflow:any
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const dashboardElement = document.getElementById('dashboard');
+    
+    if (!dashboardElement) {
+      console.error('Dashboard element not found');
+      return;
+    }
+
+    // Show loading indicator
+    const loadingElement = document.createElement('div');
+    loadingElement.style.position = 'fixed';
+    loadingElement.style.top = '0';
+    loadingElement.style.left = '0';
+    loadingElement.style.width = '100%';
+    loadingElement.style.height = '100%';
+    loadingElement.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    loadingElement.style.display = 'flex';
+    loadingElement.style.justifyContent = 'center';
+    loadingElement.style.alignItems = 'center';
+    loadingElement.style.zIndex = '10000';
+    loadingElement.innerHTML = '<div style="color: white; font-size: 24px;">Generating PDF...</div>';
+    document.body.appendChild(loadingElement);
+
+    try {
+      // Store original styles
+       originalOverflow = document.body.style.overflow;
+       originalPosition = dashboardElement.style.position;
+       originalTop = dashboardElement.style.top;
+
+      // Prepare for capture
+      document.body.style.overflow = 'hidden';
+      dashboardElement.style.position = 'absolute';
+      dashboardElement.style.top = '0';
+
+      const width = dashboardElement.scrollWidth;
+      const fullHeight = dashboardElement.scrollHeight;
+      
+      // PDF page dimensions (with margins)
+      const pdfPageWidth = doc.internal.pageSize.getWidth() - 20;
+      const pdfPageHeight = doc.internal.pageSize.getHeight() - 20;
+      
+      // Calculate scale and how many pages we'll need
+      const scale = pdfPageWidth / width;
+      const scaledFullHeight = fullHeight * scale;
+      const pagesNeeded = Math.ceil(scaledFullHeight / pdfPageHeight);
+      const viewportHeight = pdfPageHeight / scale;
+      
+      // Create a container to hold our clone
+      const captureContainer = document.createElement('div');
+      captureContainer.style.position = 'absolute';
+      captureContainer.style.left = '-9999px';
+      captureContainer.style.width = `${width}px`;
+      captureContainer.style.height = `${viewportHeight}px`;
+      captureContainer.style.overflow = 'hidden';
+      document.body.appendChild(captureContainer);
+      
+      // Clone the dashboard (only once)
+      const dashboardClone:any = dashboardElement.cloneNode(true);
+      dashboardClone.style.position = 'absolute';
+      dashboardClone.style.top = '0';
+      dashboardClone.style.left = '0';
+      captureContainer.appendChild(dashboardClone);
+      
+      // Capture each page
+      for (let page = 0; page < pagesNeeded; page++) {
+        // Calculate scroll position for this page
+        const scrollY = page * viewportHeight;
+        dashboardClone.style.top = `-${scrollY}px`;
+        
+        // Capture this portion
+        const canvas = await html2canvas(captureContainer, {
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          windowWidth: width,
+          windowHeight: viewportHeight
+        });
+        
+        // Add new page if not first page
+        if (page > 0) {
+          doc.addPage();
+        }
+        
+        // Add image to PDF
+        doc.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          10, // x
+          10, // y
+          pdfPageWidth,
+          Math.min(pdfPageHeight, scaledFullHeight - (page * pdfPageHeight)),
+          undefined,
+          'FAST'
+        );
+      }
+      
+      // Clean up clone container
+      document.body.removeChild(captureContainer);
+      
+      // Generate and download PDF
+      const pdfBlob = doc.output('blob');
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'dashboard-report.pdf';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      // Clean up
+      if (document.body.contains(loadingElement)) {
+        document.body.removeChild(loadingElement);
+      }
+      document.body.style.overflow = originalOverflow;
+      dashboardElement.style.position = originalPosition;
+      dashboardElement.style.top = originalTop;
+    }
   }
 
-  // Show loading indicator
-  const loadingElement = document.createElement('div');
-  loadingElement.style.position = 'fixed';
-  loadingElement.style.top = '0';
-  loadingElement.style.left = '0';
-  loadingElement.style.width = '100%';
-  loadingElement.style.height = '100%';
-  loadingElement.style.backgroundColor = 'rgba(0,0,0,0.5)';
-  loadingElement.style.display = 'flex';
-  loadingElement.style.justifyContent = 'center';
-  loadingElement.style.alignItems = 'center';
-  loadingElement.style.zIndex = '10000';
-  loadingElement.innerHTML = '<div style="color: white; font-size: 24px;">Generating PDF...</div>';
-  document.body.appendChild(loadingElement);
-
-  try {
-    // Get the dashboard element dimensions
-    const width = dashboardElement.scrollWidth;
-    const height = dashboardElement.scrollHeight;
-    
-    // Calculate the PDF dimensions
-    const pdfWidth = doc.internal.pageSize.getWidth() - 20;
-    const pdfHeight = (height * pdfWidth) / width;
-    
-    // Create canvas from the dashboard
-    const canvas = await html2canvas(dashboardElement, {
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      scrollX: 0,
-      scrollY: -window.scrollY,
-      windowWidth: width,
-      windowHeight: height
-    });
-
-    // Add the canvas image to PDF
-    const imgData = canvas.toDataURL('image/png');
-    doc.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight, undefined, 'FAST');
-
-    // Save the PDF
-    doc.save('dashboard-report.pdf');
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    alert('Error generating PDF. Please try again.');
-  } finally {
-    // Remove loading indicator
-    document.body.removeChild(loadingElement);
+  // Add this to your component class
+  async downloadDashboardPDF() {
+    await this.downloadDashboardAsPDF();
   }
-}
-// Add this to your component class
-async downloadDashboardPDF() {debugger
-  await this.downloadDashboardAsPDF();
-}
+
+async  downloadDashboardAsPPT() {debugger
+    const dashboardElement = document.getElementById('dashboard');
+    
+    if (!dashboardElement) {
+      console.error('Dashboard element not found');
+      return;
+    }
+
+    // Show loading indicator
+    const loadingElement = document.createElement('div');
+    loadingElement.style.position = 'fixed';
+    loadingElement.style.top = '0';
+    loadingElement.style.left = '0';
+    loadingElement.style.width = '100%';
+    loadingElement.style.height = '100%';
+    loadingElement.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    loadingElement.style.display = 'flex';
+    loadingElement.style.justifyContent = 'center';
+    loadingElement.style.alignItems = 'center';
+    loadingElement.style.zIndex = '10000';
+    loadingElement.innerHTML = '<div style="color: white; font-size: 24px;">Generating PowerPoint...</div>';
+    document.body.appendChild(loadingElement);
+
+    try {
+      // Initialize PowerPoint
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_WIDE';
+      
+      // Find all chart elements in the dashboard
+      const chartElements = dashboardElement.querySelectorAll('.chart, [data-chart], canvas, .visualization');
+      
+      // If no specific chart elements found, use sections or fallback to capturing the whole dashboard
+      if (chartElements.length === 0) {
+        // Fallback: Capture entire dashboard as one slide
+        const canvas = await html2canvas(dashboardElement);
+        const slide = pptx.addSlide();
+        slide.addImage({ data: canvas.toDataURL(), x: 0.5, y: 0.5, w: 9, h: 5 });
+      } else {
+        // Create a slide for each chart
+        for (let i = 0; i < chartElements.length; i++) {
+          const chartElement:any = chartElements[i];
+          
+          // Capture the chart
+          const canvas = await html2canvas(chartElement, {
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            backgroundColor: '#FFFFFF'
+          });
+          
+          // Create slide and add chart
+          const slide = pptx.addSlide();
+          
+          // Add title (if available)
+          const title = chartElement.getAttribute('title') || 
+                       chartElement.getAttribute('aria-label') || 
+                       `Chart ${i+1}`;
+          
+          slide.addText(title, { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 18, bold: true });
+          
+          // Add chart image (centered)
+          slide.addImage({
+            data: canvas.toDataURL(),
+            x: 1,
+            y: 1,
+            w: 8,
+            h: 4.5
+          });
+          
+          // Add footer
+          slide.addText(`Slide ${i+1} of ${chartElements.length}`, 
+            { x: 0.5, y: 5.7, w: 9, h: 0.5, fontSize: 12, color: '666666' });
+        }
+      }
+      
+      // Generate and download the PowerPoint
+      pptx.writeFile({ fileName: 'Dashboard-Presentation.pptx' });
+      
+    } catch (error) {
+      console.error('Error generating PowerPoint:', error);
+      alert('Error generating PowerPoint. Please try again.');
+    } finally {
+      // Remove loading indicator
+      if (document.body.contains(loadingElement)) {
+        document.body.removeChild(loadingElement);
+      }
+    }
+  }
+ 
 }

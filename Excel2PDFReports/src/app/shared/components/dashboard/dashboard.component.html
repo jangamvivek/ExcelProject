@@ -5,11 +5,32 @@
     </button>
     <div class="navbar-brand ml-5">{{ headerTitle }}</div>
     <div class="navbar-right-items">
-      <button class="export-button" (click)="downloadDashboardPDF()">
+      <button class="export-button" (click)="openExportModal()">
         <i class="bi bi-box-arrow-up"></i> Export
       </button>
       <i class="bi bi-person-circle profile-icon"></i>
     </div>
+    
+    <!-- Export Modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-3 rounded-4 shadow-lg">
+          <div class="modal-header border-0">
+            <h5 class="modal-title" id="exportModalLabel">Export Dashboard</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center">
+            <button class="btn btn-outline-primary me-2" (click)="downloadDashboardPDF()" data-bs-dismiss="modal">
+              <i class="bi bi-file-earmark-pdf"></i> Export PDF
+            </button>
+            <button class="btn btn-outline-success" (click)="downloadDashboardAsPPT()" data-bs-dismiss="modal">
+              <i class="bi bi-file-earmark-slides"></i> Export PPTX
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
   </nav>
 
   <div class="main-container" [class.sidebar-open]="isSidebarOpen">
@@ -216,7 +237,10 @@
                   type: 'bar', 
                   height: 250,
                   toolbar: { show: false },
-                  background: 'transparent'
+                  background: 'transparent',
+                  animations: {
+                    enabled: false
+                  }
                 }"
                 [xaxis]="{ 
                   categories: chart.data.labels,
@@ -226,7 +250,7 @@
                       fontSize: '11px',
                       fontWeight: '600'
                     },
-                    rotate: -45
+                    rotate: -45 
                   }
                 }"
                 [yaxis]="{ 
@@ -289,7 +313,10 @@
                     type: 'pie', 
                     height: 300,
                     toolbar: { show: false },
-                    background: 'transparent'
+                    background: 'transparent',
+                    animations: {
+                      enabled: false
+                    }
                   }"
                   [labels]="chart.data.labels"
                   [colors]="['#e879f9', '#f472b6', '#ec4899', '#db2777', '#be185d']"
@@ -321,7 +348,10 @@
                     type: 'bar', 
                     height: 250,
                     toolbar: { show: false },
-                    background: 'transparent'
+                    background: 'transparent',
+                    animations: {
+                      enabled: false
+                    }
                   }"
                   [xaxis]="{ 
                     categories: getHistogramLabels(chart),
@@ -371,7 +401,9 @@
                         height: 300,
                         toolbar: { show: false },
                         background: 'transparent',
-                      
+                        animations: {
+                          enabled: false
+                        }
                       }"
                       [colors]="['#e879f9']"
                       [grid]="{ 
@@ -432,7 +464,10 @@
                   type: 'heatmap', 
                   height: 400,
                   toolbar: { show: false },
-                  background: 'transparent'
+                  background: 'transparent',
+                  animations: {
+                    enabled: false
+                  }
                 }"
                 [xaxis]="{ 
                   categories: uploadData.visualizations.correlation.columns,

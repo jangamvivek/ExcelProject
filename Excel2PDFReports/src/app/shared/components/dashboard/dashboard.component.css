@@ -710,3 +710,12 @@ h1.right {
     font-size: 13px;
   }
 }
+.modal-content {
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-body button {
+  min-width: 140px;
+  margin: 10px 0;
+}
