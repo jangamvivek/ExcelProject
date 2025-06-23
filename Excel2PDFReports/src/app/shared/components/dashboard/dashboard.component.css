@@ -13,6 +13,9 @@
   padding: 20px;
   margin-bottom: 15px;
   border: none !important;
+  justify-content: center;
+  display: flex;
+  align-items: center;
 }
 
 .card-head {
@@ -80,7 +83,7 @@
 }
 
 .insights-list {
-  list-style-type: none;
+  list-style-type: disc;
   padding: 0;
 }
 

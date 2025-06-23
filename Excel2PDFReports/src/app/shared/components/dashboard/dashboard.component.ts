@@ -1,6 +1,16 @@
 import { Component, OnInit, OnDestroy, ViewChild, TemplateRef } from '@angular/core';
 import { AppService } from '../../../services/app.service';
-import { UploadResponse } from '../../../models/data.interface';
+import { 
+  EnhancedVisualizationData, 
+  FileUploadResponse, 
+  VisualizationRecommendation,
+  DistributionData,
+  CategoricalData,
+  TimeSeriesData,
+  BoxPlotData,
+  OutlierAnalysis
+} from '../../../models/data.interface';
+
 import { Subscription } from 'rxjs';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from '../../../../environments/environment';
@@ -170,6 +180,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getInsights(): string[] {
     return this.uploadData?.insights || [];
+  }
+
+  getInsightsLeft(): string[] {
+    const insights = this.getInsights();
+    const half = Math.ceil(insights.length / 2);
+    return insights.slice(0, half);
+  }
+  
+  getInsightsRight(): string[] {
+    const insights = this.getInsights();
+    const half = Math.ceil(insights.length / 2);
+    return insights.slice(half);
   }
 
   getChartData(): any {
@@ -478,7 +500,7 @@ async downloadDashboardAsPDF() {
     await this.downloadDashboardAsPDF();
   }
 
-async  downloadDashboardAsPPT() {debugger
+ async downloadDashboardAsPPT() {debugger
     const dashboardElement = document.getElementById('dashboard');
     
     if (!dashboardElement) {
@@ -504,63 +526,86 @@ async  downloadDashboardAsPPT() {debugger
     try {
       // Initialize PowerPoint
       const pptx = new PptxGenJS();
-      pptx.layout = 'LAYOUT_WIDE';
+      pptx.layout = 'LAYOUT_16x9';
       
-      // Find all chart elements in the dashboard
-      const chartElements = dashboardElement.querySelectorAll('.chart, [data-chart], canvas, .visualization');
+      // Find all chart containers (adjust selector as needed)
+      const chartContainers:any = dashboardElement.querySelectorAll('.dashboard-title-card, .barChar-container,.pie-chart-container, .histogram-container,.boxplot-container,.heatmap-container,.insides');
       
-      // If no specific chart elements found, use sections or fallback to capturing the whole dashboard
-      if (chartElements.length === 0) {
-        // Fallback: Capture entire dashboard as one slide
-        const canvas = await html2canvas(dashboardElement);
+      // Capture each chart individually
+      for (const [index, chartContainer] of chartContainers.entries()) {
+        // Create a temporary container to isolate the chart
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.width = `${chartContainer.offsetWidth}px`;
+        tempContainer.style.height = `${chartContainer.offsetHeight}px`;
+        tempContainer.style.overflow = 'hidden';
+        document.body.appendChild(tempContainer);
+        
+        // Clone the chart
+        const chartClone = chartContainer.cloneNode(true);
+        tempContainer.appendChild(chartClone);
+        
+        // Capture the chart image
+        const canvas = await html2canvas(chartClone, {
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          windowWidth: chartContainer.offsetWidth,
+          windowHeight: chartContainer.offsetHeight,
+          backgroundColor: '#FFFFFF'
+        });
+        
+        // Create new slide
         const slide = pptx.addSlide();
-        slide.addImage({ data: canvas.toDataURL(), x: 0.5, y: 0.5, w: 9, h: 5 });
+       // Calculate dimensions while maintaining aspect ratio
+      const slideWidth = 10; // inches (16:9 slide width)
+      const slideHeight = 5.625; // inches (16:9 slide height)
+      const chartAspectRatio = chartContainer.offsetWidth / chartContainer.offsetHeight;
+      const slideAspectRatio = slideWidth / slideHeight;
+      
+      let width, height, x, y;
+      
+      if (chartAspectRatio > slideAspectRatio) {
+        // Chart is wider than slide - fit to width
+        width = slideWidth;
+        height = width / chartAspectRatio;
+        x = 0;
+        y = (slideHeight - height) / 2;
       } else {
-        // Create a slide for each chart
-        for (let i = 0; i < chartElements.length; i++) {
-          const chartElement:any = chartElements[i];
-          
-          // Capture the chart
-          const canvas = await html2canvas(chartElement, {
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            backgroundColor: '#FFFFFF'
-          });
-          
-          // Create slide and add chart
-          const slide = pptx.addSlide();
-          
-          // Add title (if available)
-          const title = chartElement.getAttribute('title') || 
-                       chartElement.getAttribute('aria-label') || 
-                       `Chart ${i+1}`;
-          
-          slide.addText(title, { x: 0.5, y: 0.2, w: 9, h: 0.5, fontSize: 18, bold: true });
-          
-          // Add chart image (centered)
-          slide.addImage({
-            data: canvas.toDataURL(),
-            x: 1,
-            y: 1,
-            w: 8,
-            h: 4.5
-          });
-          
-          // Add footer
-          slide.addText(`Slide ${i+1} of ${chartElements.length}`, 
-            { x: 0.5, y: 5.7, w: 9, h: 0.5, fontSize: 12, color: '666666' });
-        }
+       // Chart is taller than slide - fit to height
+        height = slideHeight;
+        width = height * chartAspectRatio;
+        x = (slideWidth - width) / 2;
+        y = 0;
       }
       
-      // Generate and download the PowerPoint
-      pptx.writeFile({ fileName: 'Dashboard-Presentation.pptx' });
+      // Add chart image (centered)
+       
+        slide.addImage({
+          data: canvas.toDataURL('image/png'),
+          x: x,
+          y: y,
+          w: width,
+          h: height
+        });
+          
+        // Remove temporary container
+        document.body.removeChild(tempContainer);
+      }
+      
+      // Download if we found charts
+      if (chartContainers.length > 0) {
+        pptx.writeFile({ fileName: 'dashboard-charts.pptx' });
+      } else {
+        alert('No charts found in the dashboard');
+      }
       
     } catch (error) {
       console.error('Error generating PowerPoint:', error);
       alert('Error generating PowerPoint. Please try again.');
     } finally {
-      // Remove loading indicator
+      // Clean up
       if (document.body.contains(loadingElement)) {
         document.body.removeChild(loadingElement);
       }

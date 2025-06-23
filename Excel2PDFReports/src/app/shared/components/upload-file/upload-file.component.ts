@@ -2,7 +2,16 @@ import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppService } from '../../../services/app.service';
-import { UploadResponse } from '../../../models/data.interface';
+import { 
+  EnhancedVisualizationData, 
+  FileUploadResponse, 
+  VisualizationRecommendation,
+  DistributionData,
+  CategoricalData,
+  TimeSeriesData,
+  BoxPlotData,
+  OutlierAnalysis
+} from '../../../models/data.interface';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -69,11 +78,11 @@ export class UploadFileComponent {
     const formData = new FormData();
     formData.append('file', file);
   
-    this.http.post<UploadResponse>(`${environment.apiUrl}upload`, formData, {
+    this.http.post<FileUploadResponse>(`${environment.apiUrl}upload`, formData, {
       reportProgress: true,
       observe: 'events'
     }).subscribe({
-      next: (event: HttpEvent<UploadResponse>) => {
+      next: (event: HttpEvent<FileUploadResponse>) => {
         switch (event.type) {
           case HttpEventType.UploadProgress:
             if (event.total) {

@@ -226,7 +226,7 @@
         </section> -->
 
       <!-- Bar Charts -->
-      <div class="boxplot-container">
+      <div class="barChar-container">
         <div *ngIf="uploadData?.visualizations?.bar_charts?.length"  class="row g-3 mb-4" >
           <div class="col-lg-6 col-12" *ngFor="let chart of uploadData.visualizations.bar_charts;let i = index">
               <div class="card-body-chart">
@@ -492,11 +492,20 @@
       </div></div>
 
       <!-- Insights Section -->
-      <section class="card" *ngIf="getInsights().length > 0">
+      <section class="card insides" *ngIf="getInsights().length > 0">
         <p class="card-head">Key Insights</p>
-        <ul class="insights-list">
-          <li *ngFor="let insight of getInsights()">{{ insight }}</li>
-        </ul>
+        <div class="row">
+          <div class="col-md-6">
+            <ul class="insights-list">
+              <li *ngFor="let insight of getInsightsLeft()">{{ insight }}</li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <ul class="insights-list">
+              <li *ngFor="let insight of getInsightsRight()">{{ insight }}</li>
+            </ul>
+          </div>
+        </div>
       </section>
 
         <!-- Statistics Section -->
