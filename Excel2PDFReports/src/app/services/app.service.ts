@@ -16,6 +16,7 @@ import { environment } from '../../environments/environment';
 @Injectable({
   providedIn: 'root'
 })
+
 export class AppService {
   private apiUrl = environment.apiUrl;
   private uploadDataSubject: BehaviorSubject<FileUploadResponse | null>;

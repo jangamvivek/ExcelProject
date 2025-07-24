@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -13,11 +13,15 @@ import requests
 import pdfplumber
 from PIL import Image
 import pytesseract
-import io
+import io 
 import numpy as np
 from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 import shutil
 from scraper import process_image
 import re
@@ -29,7 +33,7 @@ app = FastAPI()
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=["http://192.168.1.11:4200"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -950,7 +954,10 @@ async def upload_file(file: UploadFile = File(...)):
         # Generate insights
         insights = generate_insights(df_cleaned)
 
-        # Update the response to include visualization data instead of images
+        # 🔍 Generate Axis Recommendations using ColumnAnalyzer
+        axis_recommendations = analyzer.generate_recommendations(df_cleaned)
+
+        # Construct final response
         response_data = {
             "status": "success",
             "message": "✅ File processed successfully",
@@ -961,7 +968,8 @@ async def upload_file(file: UploadFile = File(...)):
             "preview": preview,
             "statistics": stats,
             "insights": insights,
-            "visualizations": visualization_data,  # Now contains data for frontend charts
+            "visualizations": visualization_data,
+            "axis_recommendations": axis_recommendations.dict(),  # ⭐ Add this line
             "raw_data": {
                 "columns": df_cleaned.columns.tolist(),
                 "data": df_cleaned.head(100).to_dict(orient="records")
@@ -1090,6 +1098,463 @@ async def upload_image(file: UploadFile = File(...)):
             }
         )
 
+# new model code 
+class ColumnRecommendation(BaseModel):
+    column_name: str
+    axis_type: str  # 'x_axis', 'y_axis', 'category', 'filter'
+    confidence_score: float
+    data_type: str
+    reasoning: str
+    sample_values: List[Any]
+
+class AxisRecommendations(BaseModel):
+    x_axis_candidates: List[ColumnRecommendation]
+    y_axis_candidates: List[ColumnRecommendation]
+    category_candidates: List[ColumnRecommendation]
+    filter_candidates: List[ColumnRecommendation]
+    best_combinations: List[Dict[str, Any]]
+
+class ColumnAnalyzer:
+    def __init__(self):
+        self.x_axis_keywords = [
+            'date', 'time', 'month', 'year', 'day', 'period',
+            'category', 'type', 'class', 'group', 'segment',
+            'product', 'item', 'name', 'region', 'location',
+            'department', 'division', 'branch', 'store'
+        ]
+        
+        self.y_axis_keywords = [
+            'amount', 'value', 'price', 'cost', 'revenue', 'sales',
+            'profit', 'income', 'expense', 'total', 'sum',
+            'count', 'quantity', 'number', 'volume', 'rate',
+            'percentage', 'ratio', 'score', 'rating', 'index'
+        ]
+        
+        self.category_keywords = [
+            'category', 'type', 'class', 'group', 'kind',
+            'status', 'state', 'level', 'grade', 'tier'
+        ]
+        
+        # Initialize the ML model
+        self.model = self._create_model()
+        
+    def _create_model(self):
+        """Create and train a simple model for axis detection"""
+        # This is a simplified model - in production, you'd train on more data
+        return {
+            'x_axis_model': RandomForestClassifier(n_estimators=50, random_state=42),
+            'y_axis_model': RandomForestClassifier(n_estimators=50, random_state=42),
+            'scaler': StandardScaler()
+        }
+    
+    def extract_column_features(self, df: pd.DataFrame, column_name: str) -> Dict[str, float]:
+        """Extract features from a column for ML model"""
+        col_data = df[column_name].dropna()
+        
+        if len(col_data) == 0:
+            return {}
+        
+        features = {}
+        
+        # Basic statistics
+        features['unique_count'] = col_data.nunique()
+        features['total_count'] = len(col_data)
+        features['uniqueness_ratio'] = features['unique_count'] / features['total_count']
+        features['null_percentage'] = df[column_name].isnull().sum() / len(df)
+        
+        # Data type features
+        features['is_numeric'] = pd.api.types.is_numeric_dtype(col_data)
+        features['is_datetime'] = pd.api.types.is_datetime64_any_dtype(col_data)
+        features['is_categorical'] = pd.api.types.is_categorical_dtype(col_data) or col_data.dtype == 'object'
+        
+        # Name-based features
+        col_lower = column_name.lower()
+        features['has_x_keywords'] = sum(1 for keyword in self.x_axis_keywords if keyword in col_lower)
+        features['has_y_keywords'] = sum(1 for keyword in self.y_axis_keywords if keyword in col_lower)
+        features['has_category_keywords'] = sum(1 for keyword in self.category_keywords if keyword in col_lower)
+        
+        # Advanced features for numeric columns
+        if features['is_numeric']:
+            features['min_value'] = col_data.min()
+            features['max_value'] = col_data.max()
+            features['mean_value'] = col_data.mean()
+            features['std_value'] = col_data.std()
+            features['has_negative'] = (col_data < 0).any()
+            features['has_decimals'] = (col_data % 1 != 0).any()
+            features['value_range'] = features['max_value'] - features['min_value']
+            features['coefficient_of_variation'] = features['std_value'] / features['mean_value'] if features['mean_value'] != 0 else 0
+        else:
+            # Default values for non-numeric columns
+            for key in ['min_value', 'max_value', 'mean_value', 'std_value', 'value_range', 'coefficient_of_variation']:
+                features[key] = 0
+            features['has_negative'] = False
+            features['has_decimals'] = False
+        
+        # Categorical features
+        if features['is_categorical']:
+            features['avg_string_length'] = col_data.astype(str).str.len().mean()
+            features['has_mixed_case'] = col_data.astype(str).str.contains(r'[a-z].*[A-Z]|[A-Z].*[a-z]').any()
+        else:
+            features['avg_string_length'] = 0
+            features['has_mixed_case'] = False
+        
+        # Cardinality features
+        features['is_high_cardinality'] = features['unique_count'] > 50
+        features['is_low_cardinality'] = features['unique_count'] < 10
+        features['is_binary'] = features['unique_count'] == 2
+        
+        return features
+    
+    def predict_axis_suitability(self, df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+        """Predict axis suitability for each column using rule-based approach"""
+        predictions = {}
+        
+        for column in df.columns:
+            features = self.extract_column_features(df, column)
+            if not features:
+                continue
+                
+            # Rule-based scoring
+            x_axis_score = self._calculate_x_axis_score(features, column)
+            y_axis_score = self._calculate_y_axis_score(features, column)
+            category_score = self._calculate_category_score(features, column)
+            filter_score = self._calculate_filter_score(features, column)
+            
+            predictions[column] = {
+                'x_axis': x_axis_score,
+                'y_axis': y_axis_score,
+                'category': category_score,
+                'filter': filter_score
+            }
+        
+        return predictions
+    
+    def _calculate_x_axis_score(self, features: Dict[str, float], column_name: str) -> float:
+        """Calculate X-axis suitability score"""
+        score = 0.0
+        
+        # Keyword matching
+        score += features.get('has_x_keywords', 0) * 0.3
+        
+        # Categorical columns are good for X-axis
+        if features.get('is_categorical', False):
+            score += 0.4
+            
+        # Low to medium cardinality is preferred
+        if features.get('uniqueness_ratio', 0) < 0.5:
+            score += 0.3
+        
+        # Datetime columns are excellent for X-axis
+        if features.get('is_datetime', False):
+            score += 0.5
+            
+        # Penalize high cardinality
+        if features.get('is_high_cardinality', False):
+            score -= 0.2
+            
+        # Binary columns can be good for X-axis
+        if features.get('is_binary', False):
+            score += 0.2
+            
+        return min(1.0, max(0.0, score))
+    
+    def _calculate_y_axis_score(self, features: Dict[str, float], column_name: str) -> float:
+        """Calculate Y-axis suitability score"""
+        score = 0.0
+        
+        # Keyword matching
+        score += features.get('has_y_keywords', 0) * 0.4
+        
+        # Numeric columns are preferred for Y-axis
+        if features.get('is_numeric', False):
+            score += 0.5
+            
+        # Continuous data is better
+        if features.get('uniqueness_ratio', 0) > 0.1:
+            score += 0.3
+            
+        # Higher variance indicates measurable data
+        if features.get('coefficient_of_variation', 0) > 0.1:
+            score += 0.2
+            
+        # Penalize categorical data
+        if features.get('is_categorical', False):
+            score -= 0.3
+            
+        return min(1.0, max(0.0, score))
+    
+    def _calculate_category_score(self, features: Dict[str, float], column_name: str) -> float:
+        """Calculate category/grouping suitability score"""
+        score = 0.0
+        
+        # Keyword matching
+        score += features.get('has_category_keywords', 0) * 0.4
+        
+        # Categorical columns are good for grouping
+        if features.get('is_categorical', False):
+            score += 0.4
+            
+        # Low to medium cardinality
+        if 2 <= features.get('unique_count', 0) <= 20:
+            score += 0.3
+            
+        # Penalize high cardinality
+        if features.get('is_high_cardinality', False):
+            score -= 0.4
+            
+        return min(1.0, max(0.0, score))
+    
+    def _calculate_filter_score(self, features: Dict[str, float], column_name: str) -> float:
+        """Calculate filter suitability score"""
+        score = 0.0
+        
+        # Categorical columns with reasonable cardinality
+        if features.get('is_categorical', False) and 2 <= features.get('unique_count', 0) <= 50:
+            score += 0.4
+            
+        # Numeric columns with reasonable range
+        if features.get('is_numeric', False) and features.get('unique_count', 0) < 100:
+            score += 0.3
+            
+        # Datetime columns are good for filtering
+        if features.get('is_datetime', False):
+            score += 0.4
+            
+        return min(1.0, max(0.0, score))
+    
+    def generate_recommendations(self, df: pd.DataFrame) -> AxisRecommendations:
+        """Generate comprehensive axis recommendations"""
+        predictions = self.predict_axis_suitability(df)
+        
+        # Create recommendations for each axis type
+        x_axis_candidates = []
+        y_axis_candidates = []
+        category_candidates = []
+        filter_candidates = []
+        
+        for column, scores in predictions.items():
+            sample_values = df[column].dropna().head(5).tolist()
+            
+            # X-axis candidates
+            if scores['x_axis'] > 0.3:
+                x_axis_candidates.append(ColumnRecommendation(
+                    column_name=column,
+                    axis_type='x_axis',
+                    confidence_score=scores['x_axis'],
+                    data_type=str(df[column].dtype),
+                    reasoning=self._get_reasoning(column, 'x_axis', scores['x_axis']),
+                    sample_values=sample_values
+                ))
+            
+            # Y-axis candidates
+            if scores['y_axis'] > 0.3:
+                y_axis_candidates.append(ColumnRecommendation(
+                    column_name=column,
+                    axis_type='y_axis',
+                    confidence_score=scores['y_axis'],
+                    data_type=str(df[column].dtype),
+                    reasoning=self._get_reasoning(column, 'y_axis', scores['y_axis']),
+                    sample_values=sample_values
+                ))
+            
+            # Category candidates
+            if scores['category'] > 0.3:
+                category_candidates.append(ColumnRecommendation(
+                    column_name=column,
+                    axis_type='category',
+                    confidence_score=scores['category'],
+                    data_type=str(df[column].dtype),
+                    reasoning=self._get_reasoning(column, 'category', scores['category']),
+                    sample_values=sample_values
+                ))
+            
+            # Filter candidates
+            if scores['filter'] > 0.3:
+                filter_candidates.append(ColumnRecommendation(
+                    column_name=column,
+                    axis_type='filter',
+                    confidence_score=scores['filter'],
+                    data_type=str(df[column].dtype),
+                    reasoning=self._get_reasoning(column, 'filter', scores['filter']),
+                    sample_values=sample_values
+                ))
+        
+        # Sort by confidence score
+        x_axis_candidates.sort(key=lambda x: x.confidence_score, reverse=True)
+        y_axis_candidates.sort(key=lambda x: x.confidence_score, reverse=True)
+        category_candidates.sort(key=lambda x: x.confidence_score, reverse=True)
+        filter_candidates.sort(key=lambda x: x.confidence_score, reverse=True)
+        
+        # Generate best combinations
+        best_combinations = self._generate_best_combinations(
+            x_axis_candidates[:5], y_axis_candidates[:5], category_candidates[:3]
+        )
+        
+        return AxisRecommendations(
+            x_axis_candidates=x_axis_candidates,
+            y_axis_candidates=y_axis_candidates,
+            category_candidates=category_candidates,
+            filter_candidates=filter_candidates,
+            best_combinations=best_combinations
+        )
+    
+    def _get_reasoning(self, column_name: str, axis_type: str, score: float) -> str:
+        """Generate reasoning for the recommendation"""
+        col_lower = column_name.lower()
+        
+        if axis_type == 'x_axis':
+            if any(keyword in col_lower for keyword in ['date', 'time', 'month', 'year']):
+                return f"Time-based column ideal for trend analysis"
+            elif any(keyword in col_lower for keyword in ['category', 'type', 'class']):
+                return f"Categorical data perfect for grouping on X-axis"
+            else:
+                return f"Suitable for X-axis with {score:.1%} confidence"
+        
+        elif axis_type == 'y_axis':
+            if any(keyword in col_lower for keyword in ['amount', 'value', 'price', 'profit']):
+                return f"Monetary value ideal for Y-axis measurement"
+            elif any(keyword in col_lower for keyword in ['count', 'quantity', 'number']):
+                return f"Quantitative data perfect for Y-axis"
+            else:
+                return f"Numeric data suitable for Y-axis with {score:.1%} confidence"
+        
+        elif axis_type == 'category':
+            return f"Good for data grouping and segmentation"
+        
+        else:  # filter
+            return f"Suitable for filtering and data exploration"
+    
+    def _generate_best_combinations(self, x_candidates: List[ColumnRecommendation], 
+                                  y_candidates: List[ColumnRecommendation],
+                                  category_candidates: List[ColumnRecommendation]) -> List[Dict[str, Any]]:
+        """Generate best X-Y axis combinations"""
+        combinations = []
+        
+        # Top combinations
+        for i, x_col in enumerate(x_candidates[:3]):
+            for j, y_col in enumerate(y_candidates[:3]):
+                if x_col.column_name != y_col.column_name:
+                    combined_score = (x_col.confidence_score + y_col.confidence_score) / 2
+                    
+                    combination = {
+                        'x_axis': x_col.column_name,
+                        'y_axis': y_col.column_name,
+                        'chart_type': self._suggest_chart_type(x_col, y_col),
+                        'confidence_score': combined_score,
+                        'category': category_candidates[0].column_name if category_candidates else None,
+                        'title': f"{y_col.column_name} by {x_col.column_name}",
+                        'description': f"Analyze {y_col.column_name} across different {x_col.column_name}"
+                    }
+                    
+                    combinations.append(combination)
+        
+        # Sort by combined score
+        combinations.sort(key=lambda x: x['confidence_score'], reverse=True)
+        
+        return combinations[:5]  # Return top 5 combinations
+    
+    def _suggest_chart_type(self, x_col: ColumnRecommendation, y_col: ColumnRecommendation) -> str:
+        """Suggest the best chart type for the combination"""
+        if 'date' in x_col.column_name.lower() or 'time' in x_col.column_name.lower():
+            return 'line'
+        elif x_col.data_type == 'object' and y_col.data_type in ['int64', 'float64']:
+            return 'bar'
+        elif x_col.data_type in ['int64', 'float64'] and y_col.data_type in ['int64', 'float64']:
+            return 'scatter'
+        else:
+            return 'bar'
+
+# Global analyzer instance
+analyzer = ColumnAnalyzer()
+
+@app.post("/detect-axis-columns", response_model=AxisRecommendations)
+async def detect_axis_columns(file: UploadFile = File(...)):
+    """Detect best columns for X and Y axes"""
+    
+    if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="File must be CSV or Excel")
+    
+    try:
+        contents = await file.read()
+        
+        # Read file based on extension
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="File is empty")
+        
+        # Generate recommendations
+        recommendations = analyzer.generate_recommendations(df)
+        
+        return recommendations
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+@app.post("/predict-best-combination")
+async def predict_best_combination(file: UploadFile = File(...)):
+    """Get the single best X-Y axis combination"""
+    
+    try:
+        contents = await file.read()
+        
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        recommendations = analyzer.generate_recommendations(df)
+        
+        if recommendations.best_combinations:
+            best = recommendations.best_combinations[0]
+            return {
+                "status": "success",
+                "best_combination": best,
+                "alternatives": recommendations.best_combinations[1:3]
+            }
+        else:
+            raise HTTPException(status_code=400, detail="No suitable combinations found")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.get("/column-features/{column_name}")
+async def get_column_features(column_name: str, file: UploadFile = File(...)):
+    """Get detailed features for a specific column"""
+    
+    try:
+        contents = await file.read()
+        
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        if column_name not in df.columns:
+            raise HTTPException(status_code=404, detail="Column not found")
+        
+        features = analyzer.extract_column_features(df, column_name)
+        
+        return {
+            "column_name": column_name,
+            "features": features,
+            "sample_data": df[column_name].head(10).tolist(),
+            "statistics": {
+                "count": len(df[column_name]),
+                "unique": df[column_name].nunique(),
+                "null_count": df[column_name].isnull().sum()
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     
 # --------------- Web Scraping -------------------
 
